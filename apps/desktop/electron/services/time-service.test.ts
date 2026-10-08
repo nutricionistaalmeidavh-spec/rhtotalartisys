@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 const require=createRequire(import.meta.url)
 const {DatabaseService}=require('./database.cjs')
 const {TimeService,buildPrintBatchHtml,filterBenefitsByPolicy}=require('./time-service.cjs')
+const {HrWorkspaceService}=require('./hr-workspace-service.cjs')
 const {parseEmployeeIdentity}=require('./import-service.cjs')
 const created:Array<{dir:string,db:any}>=[]
 
@@ -35,6 +36,26 @@ describe('folha de ponto mensal comercial',()=>{
     expect(first.marks.filter((x:any)=>/sabado|domingo/.test(x.tipo)).every((x:any)=>!x.entrada&&!x.saida)).toBe(true)
   })
 
+  it('bloqueia documentos sem marcações revisadas e não inventa jornada',()=>{
+    const {employee,time}=setup()
+    expect(()=>time.validatedData(employee.id,'2026-08')).toThrow(/Registre e confira/)
+    const simulated=time.autoFill({funcionario_id:employee.id,competencia:'2026-08'})
+    expect(()=>time.validatedData(employee.id,'2026-08')).toThrow(/simuladas precisam de revisão/)
+    expect(()=>time.save({funcionario_id:employee.id,competencia:'2026-08',marks:simulated.marks})).toThrow(/Confirme/)
+    time.save({funcionario_id:employee.id,competencia:'2026-08',marks:simulated.marks,confirmado_real:true})
+    expect(time.validatedData(employee.id,'2026-08').data.marks).toHaveLength(31)
+  })
+
+  it('respeita férias aprovadas no pré-preenchimento, sem criar batidas nesses dias',()=>{
+    const {db,employee,time,company}=setup()
+    const hr=new HrWorkspaceService({db})
+    hr.save({empresa_id:company.id,funcionario_id:employee.id,tipo:'ferias',titulo:'Férias agosto',inicio:'2026-08-10',fim:'2026-08-14',estado:'aprovado'})
+    const result=time.autoFill({funcionario_id:employee.id,competencia:'2026-08'})
+    const onLeave=result.marks.find((r:any)=>r.data==='2026-08-10')
+    expect(onLeave.tipo).toBe('ferias')
+    expect(onLeave.entrada).toBeNull()
+  })
+
   it('identifica cargo no nome da planilha sem mantê-lo no nome do funcionário',()=>{
     expect(parseEmployeeIdentity('Adenir encanador')).toEqual({name:'Adenir',roleHint:'Encanador'})
     expect(parseEmployeeIdentity('Carlos - ajudante')).toEqual({name:'Carlos',roleHint:'Ajudante de Encanador'})
@@ -57,6 +78,8 @@ describe('folha de ponto mensal comercial',()=>{
     const {db,company,employee,time}=setup()
     db.save('empresas',{...company,politica_recibos:'Café, Vale-alimentação'})
     time.autoFill({funcionario_id:employee.id,competencia:'2026-08'})
+    const reviewed=time.get({funcionario_id:employee.id,competencia:'2026-08'})
+    time.save({funcionario_id:employee.id,competencia:'2026-08',marks:reviewed.marks,confirmado_real:true})
     const folha=db.save('folhas_pagamento',{empresa_id:employee.empresa_id,competencia:'2026-08',status:'aberta'})
     db.save('folha_lancamentos',{folha_id:folha.id,funcionario_id:employee.id,tipo:'beneficio_cafe',descricao:'Café',natureza:'credito',quinzena:1,valor_centavos:18000})
     db.save('folha_lancamentos',{folha_id:folha.id,funcionario_id:employee.id,tipo:'beneficio_vale_alimentacao',descricao:'Vale-alimentação',natureza:'credito',quinzena:1,valor_centavos:51000})
@@ -77,6 +100,8 @@ describe('folha de ponto mensal comercial',()=>{
   it('gera somente o tipo de documento selecionado',async()=>{
     const {employee,time}=setup()
     time.autoFill({funcionario_id:employee.id,competencia:'2026-08'})
+    const reviewed=time.get({funcionario_id:employee.id,competencia:'2026-08'})
+    time.save({funcionario_id:employee.id,competencia:'2026-08',marks:reviewed.marks,confirmado_real:true})
     time.printHtml=async(html:string,destination:string)=>{fs.mkdirSync(path.dirname(destination),{recursive:true});fs.writeFileSync(destination,html,'utf8')}
     const result=await time.generateDocuments({funcionario_id:employee.id,competencia:'2026-08',paymentDate:'2026-08-15',point:true,receipts:false})
     expect(result.point?.path).toBeTruthy()

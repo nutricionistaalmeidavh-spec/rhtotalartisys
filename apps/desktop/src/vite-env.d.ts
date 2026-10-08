@@ -68,6 +68,8 @@ type ScannerApi = {
   saveSigned(data:{sessionId:string;documentId:number;replace:boolean}):Promise<ScannerSaveResult>
 }
 interface Window { fluxoDre: {
+  access: { accounts():Promise<any[]>;create(input:Record<string,unknown>):Promise<any>;lanStatus():Promise<any>;startLan(input:Record<string,unknown>):Promise<any>;stopLan():Promise<any> };
+  rh: { list(input:{empresa_id:number;tipo?:string;funcionario_id?:number}):Promise<any[]>; get(input:{id:number;empresa_id:number}):Promise<any>;save(input:Record<string,unknown>):Promise<any>;remove(input:{id:number;empresa_id:number;revisao:number}):Promise<boolean>;indicators(input:{empresa_id:number}):Promise<{funcionarios:number;ausencias_hoje:number;registros:Record<string,number>;estados:any[]}>;closePayroll(input:{empresa_id:number;competencia:string}):Promise<any>;reopenPayroll(input:{empresa_id:number;competencia:string;justificativa:string}):Promise<any>;completeTermination(input:{empresa_id:number;id:number;confirmacao:boolean}):Promise<any> };
   app: { bootstrap(): Promise<any>; retryDatabase(): Promise<boolean>; getLayout(): Promise<'command-center'|'classic'>; setLayout(layout:'command-center'|'classic'): Promise<'command-center'|'classic'> }; product:{getEdition():Promise<{edition:'construtora'|'empreiteira';locked:boolean}>;setEdition(edition:'construtora'|'empreiteira'):Promise<any>}; demo:{seed():Promise<any>}
   storage:{state():Promise<StorageConnectionState>;configure(input:{mode?:'local'|'server';operationalMode?:OperationalStorageMode;scheme?:'http'|'https';host?:string;port?:number;address?:string}):Promise<StorageConnectionState>;testConnection():Promise<StorageConnectionTest>;discoverServers():Promise<DiscoveredServer[]>;probeAddress(address:string,operationalMode?:'lan-client'|'remote'):Promise<StorageConnectionTest>;connectAddress(address:string,operationalMode?:'lan-client'|'remote'):Promise<{state:StorageConnectionState;server:StorageConnectionTest}>;moduleState(module:ModuleStorageKey):Promise<ModuleStorageState>;refreshModuleCapabilities():Promise<ModuleStorageStates>;migrationPreflight(module:ModuleStorageKey):Promise<ModuleMigrationPreflight>;migrationStatus(module:ModuleStorageKey):Promise<ModuleMigrationStatus>;migrateModule(module:ModuleStorageKey):Promise<ModuleMigrationResult>;rollbackModuleMigration(module:ModuleStorageKey):Promise<{module:ModuleStorageKey;status:string}>}
   lan:{
@@ -116,5 +118,5 @@ interface Window { fluxoDre: {
     publishFinanceReference(obligations:any[]):Promise<any>;aiAnalyze(input:any):Promise<any>;conflicts():Promise<any>;resolveConflict(conflictId:string,resolution:'accept_desktop'|'keep_mobile'):Promise<any>
   };
   updater:{state():Promise<UpdaterState>;check():Promise<UpdaterState>;download():Promise<UpdaterState>;install():Promise<boolean>;onStateChanged(listener:(state:UpdaterState)=>void):()=>void};
-  backup:{create():Promise<any>;restore():Promise<any>;openDataFolder():Promise<any>}
+  backup:{create():Promise<any>;list():Promise<any[]>;verify(path:string):Promise<any>;restore(data:{path:string;confirm:boolean}):Promise<any>;openDataFolder():Promise<any>}
 } }

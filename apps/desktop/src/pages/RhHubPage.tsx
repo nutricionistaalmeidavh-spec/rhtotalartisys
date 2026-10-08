@@ -1,4 +1,4 @@
-import { BriefcaseBusiness, CalendarClock, FileArchive, ReceiptText, UsersRound, WalletCards } from 'lucide-react'
+import { BriefcaseBusiness, CalendarClock, FileArchive, ReceiptText, UsersRound, WalletCards, ClipboardList, ShieldCheck } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Card, Field, Kpi, PageHeader } from '../components/ui'
 import { WorkQueue } from '../components/WorkQueue'
@@ -13,6 +13,8 @@ const cards = [
   {to:ROUTES.rhCompensation,title:'Cargos e remuneração',description:'Defina salário-base, benefícios por cargo e os valores que alimentam a folha.',icon:WalletCards},
   {to:ROUTES.rhPayroll,title:'Folha e pagamentos',description:'Revise valores fixos e variáveis e confirme pagamentos por competência.',icon:ReceiptText},
   {to:ROUTES.rhTime,title:'Folhas de ponto e recibos',description:'Revise marcações, gere documentos mensais, imprima e reimprima lotes.',icon:CalendarClock},
+  {to:ROUTES.rhAccess,title:'Acesso local e backup',description:'Gerencie contas de acesso à LAN, instantâneos SQLite e restauração segura.',icon:ShieldCheck},
+  {to:ROUTES.rhWorkspace,title:'Gestão de pessoas',description:'Férias, afastamentos, desligamentos, recrutamento, jornada, treinamento, metas e desempenho.',icon:ClipboardList},
   {to:ROUTES.rhTemplates,title:'Modelos de documentos',description:'Gerencie os modelos, regras admissionais e kits de EPI por empresa e cargo.',icon:FileArchive},
 ]
 

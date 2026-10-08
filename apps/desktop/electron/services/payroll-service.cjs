@@ -19,6 +19,7 @@ class PayrollService {
     let sheet = this.db.db.prepare('SELECT * FROM folhas_pagamento WHERE empresa_id IS ? AND competencia=?').get(employee.empresa_id || null, competencia)
     if (!sheet) sheet = this.db.save('folhas_pagamento', { empresa_id: employee.empresa_id || null, competencia, status: 'aberta' })
     const companyEmployees = this.db.db.prepare("SELECT * FROM funcionarios WHERE empresa_id IS ? AND deleted_at IS NULL AND status='ativo' ORDER BY id").all(employee.empresa_id || null)
+    if (sheet.status === 'fechada') return {employee,cargo,sheet}
     for (const person of companyEmployees) {
       const paid = this.db.db.prepare("SELECT COUNT(*) total FROM pagamentos_funcionario WHERE funcionario_id=? AND competencia=? AND status='pago'").get(person.id, competencia).total
       if (!paid) this.syncFixed(sheet, person, person.cargo_id ? this.db.get('cargos', person.cargo_id) : null)
@@ -79,7 +80,7 @@ class PayrollService {
   }
 
   syncFixed(sheet, employee, cargo) {
-    const fixed = []
+    let fixed = []
     const salary = employee.salario_centavos || cargo?.salario_base_centavos || 0
     if (salary) fixed.push({ tipo: 'salario', descricao: 'Salário base', valor: salary, natureza: 'credito', quinzena: 1 })
     const benefitMap = new Map()
@@ -93,6 +94,14 @@ class PayrollService {
       benefitMap.delete(benefit.beneficio_id)
     }
     for (const benefit of benefitMap.values()) fixed.push(benefit)
+    // Congela os valores fixos na primeira consolidacao da competencia.
+    const snapshot=this.db.db.prepare('SELECT * FROM rh_remuneracao_competencia WHERE funcionario_id=? AND competencia=?').get(employee.id,sheet.competencia)
+    if(snapshot){
+      fixed=JSON.parse(snapshot.lancamentos_fixos_json)
+    }else{
+      this.db.db.prepare('INSERT INTO rh_remuneracao_competencia(empresa_id,funcionario_id,competencia,cargo_id,salario_centavos,lancamentos_fixos_json) VALUES (?,?,?,?,?,?)')
+        .run(employee.empresa_id||null,employee.id,sheet.competencia,employee.cargo_id||null,Number(salary),JSON.stringify(fixed))
+    }
     const benefitCatalog = new Map(this.db.db.prepare("SELECT id,nome,tipo FROM beneficios WHERE ativo=1").all().map(item=>[Number(item.id),item]))
     const importedKeys = new Set(this.db.db.prepare("SELECT * FROM folha_lancamentos WHERE folha_id=? AND funcionario_id=? AND origem='importacao'").all(sheet.id,employee.id).map(item=>classifyPayrollOverviewLaunch(item,benefitCatalog)))
     const find = this.db.db.prepare("SELECT id FROM folha_lancamentos WHERE folha_id=? AND funcionario_id=? AND tipo=? AND origem='cargo'")
@@ -107,6 +116,24 @@ class PayrollService {
     }
   }
 
+  readOnlyEmployee(payload) {
+    const employee=this.db.get('funcionarios',Number(payload.funcionario_id))
+    if(!employee)throw Error('Funcionário não encontrado.')
+    const cargo=employee.cargo_id?this.db.get('cargos',employee.cargo_id):null
+    const sheet=this.db.db.prepare('SELECT * FROM folhas_pagamento WHERE empresa_id IS ? AND competencia=?').get(employee.empresa_id||null,payload.competencia)||null
+    let launches=sheet?this.db.db.prepare('SELECT * FROM folha_lancamentos WHERE folha_id=? AND funcionario_id=? ORDER BY quinzena,editavel,tipo,id').all(sheet.id,employee.id):[]
+    if(!sheet){
+      const salary=Number(employee.salario_centavos||cargo?.salario_base_centavos||0)
+      if(salary)launches.push({tipo:'salario',descricao:'Salário base projetado',natureza:'credito',quinzena:1,valor_centavos:salary,editavel:0,origem:'projecao',status:'pendente'})
+      if(cargo){
+        const benefits=this.db.db.prepare('SELECT cb.*,b.nome FROM cargo_beneficios cb JOIN beneficios b ON b.id=cb.beneficio_id WHERE cb.cargo_id=? AND cb.ativo=1 AND b.ativo=1').all(cargo.id)
+        launches.push(...benefits.map(b=>({tipo:'beneficio_'+b.beneficio_id,descricao:b.nome,natureza:b.natureza,quinzena:b.quinzena,valor_centavos:b.valor_centavos,editavel:0,origem:'projecao',status:'pendente'})))
+      }
+    }
+    const payments=this.db.db.prepare('SELECT * FROM pagamentos_funcionario WHERE funcionario_id=? AND competencia=? ORDER BY quinzena').all(employee.id,payload.competencia)
+    return{employee,cargo,sheet,launches,payments}
+  }
+
   getEmployee(payload) {
     const { employee, cargo, sheet } = this.ensureSheet(payload.funcionario_id, payload.competencia)
     const launches = this.db.db.prepare('SELECT * FROM folha_lancamentos WHERE folha_id=? AND funcionario_id=? ORDER BY quinzena,editavel,tipo,id').all(sheet.id, employee.id)
@@ -116,6 +143,7 @@ class PayrollService {
 
   saveVariable(payload) {
     const { employee, sheet } = this.ensureSheet(payload.funcionario_id, payload.competencia)
+    if(sheet.status==='fechada')throw Error('Competência fechada. Reabra com justificativa para editar.')
     const data = {
       id: payload.id,
       folha_id: sheet.id,
@@ -142,6 +170,7 @@ class PayrollService {
     const current = this.db.get('folha_lancamentos', Number(id))
     if (!current?.editavel || current.status === 'pago') throw new Error('Este lançamento não pode ser excluído.')
     const sheet = this.db.get('folhas_pagamento', current.folha_id)
+    if(sheet?.status==='fechada')throw Error('Competência fechada. Reabra com justificativa para editar.')
     this.db.db.prepare('DELETE FROM folha_lancamentos WHERE id=?').run(current.id)
     if (sheet) this.syncPayrollAccount(sheet)
     return true
@@ -153,6 +182,7 @@ class PayrollService {
     if(!['PIX','Transferência','Dinheiro','Cheque','Outro'].includes(payload.forma_pagamento||'PIX'))throw new Error('Forma de pagamento inválida.')
     if(![1,2].includes(Number(payload.quinzena)))throw new Error('Quinzena inválida.')
     const { employee, sheet } = this.ensureSheet(payload.funcionario_id, payload.competencia)
+    if(sheet.status==='fechada')throw Error('Competência fechada. Reabra com justificativa.')
     const quinzena = Number(payload.quinzena)
     const existing = this.db.db.prepare("SELECT id FROM pagamentos_funcionario WHERE funcionario_id=? AND competencia=? AND quinzena=? AND status='pago'").get(employee.id, payload.competencia, quinzena)
     if (existing) throw new Error('Esta quinzena já foi confirmada.')
@@ -180,7 +210,7 @@ class PayrollService {
     const employees = this.db.db.prepare(`SELECT * FROM funcionarios WHERE ${employeeWhere.join(' AND ')} ORDER BY nome COLLATE NOCASE`).all(...employeeParams)
     const benefits = this.db.db.prepare('SELECT * FROM beneficios WHERE ativo=1 ORDER BY nome COLLATE NOCASE').all()
     const employeeEntries = employees.map(employee => {
-      const data = this.getEmployee({ funcionario_id: employee.id, competencia })
+      const data = this.readOnlyEmployee({ funcionario_id: employee.id, competencia })
       return { employee: data.employee, cargo: data.cargo, launches: data.launches }
     })
 
@@ -206,10 +236,11 @@ class PayrollService {
     })
   }
 
+  assertOpenPeriod(empresaId,competencia){const sheet=this.db.db.prepare('SELECT status FROM folhas_pagamento WHERE empresa_id IS ? AND competencia=?').get(empresaId||null,competencia);if(sheet?.status==='fechada')throw Error('Competência fechada. Reabra com justificativa.');}
   importPreview(payload) { return this.importEngine.preview(payload) }
-  importCommit(payload) { const result=this.importEngine.commit(payload);const sheet=this.db.db.prepare('SELECT * FROM folhas_pagamento WHERE empresa_id IS ? AND competencia=?').get(payload.empresa_id||null,payload.competencia);if(sheet)this.syncPayrollAccount(sheet);return result }
+  importCommit(payload) { this.assertOpenPeriod(payload.empresa_id,payload.competencia);const result=this.importEngine.commit(payload);const sheet=this.db.db.prepare('SELECT * FROM folhas_pagamento WHERE empresa_id IS ? AND competencia=?').get(payload.empresa_id||null,payload.competencia);if(sheet)this.syncPayrollAccount(sheet);return result }
   importHistory(limit) { return this.importEngine.history(limit) }
-  importUndo(importacaoId) { const result=this.importEngine.undo(importacaoId);const sheets=this.db.db.prepare('SELECT * FROM folhas_pagamento').all();for(const sheet of sheets)this.syncPayrollAccount(sheet);return result }
+  importUndo(importacaoId) { const closed=this.db.db.prepare("SELECT id FROM folhas_pagamento WHERE status='fechada' LIMIT 1").get();if(closed)throw Error('Reabra as competências fechadas antes de desfazer importações.');const result=this.importEngine.undo(importacaoId);const sheets=this.db.db.prepare('SELECT * FROM folhas_pagamento').all();for(const sheet of sheets)this.syncPayrollAccount(sheet);return result }
 
   pending(competencia) {
     const employees = this.db.db.prepare("SELECT * FROM funcionarios WHERE deleted_at IS NULL AND status='ativo' ORDER BY nome COLLATE NOCASE").all()

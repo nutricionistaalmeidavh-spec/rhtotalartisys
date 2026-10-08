@@ -56,11 +56,15 @@ test('ponto: mês na própria tela, aviso de simulação e persistência das mar
  const {employee}=await seed(page);await go(page,'/rh/ponto');await page.getByLabel('Competência').fill('2026-09');await page.getByLabel('Funcionário',{exact:true}).selectOption(String(employee.id))
  await expect(page.getByText('O preenchimento automático cria horários simulados. Confira e ajuste conforme a jornada real.')).toBeVisible()
  let warning='';page.once('dialog',async d=>{warning=d.message();await d.accept()});await page.getByRole('button',{name:'Preencher mês',exact:true}).click();await expect(page.locator('.time-table tbody tr')).toHaveCount(30);expect(warning).toContain('horários simulados')
+ await page.getByRole('checkbox',{name:/Conferi as marcações/}).check();
  await page.getByRole('button',{name:'Salvar',exact:true}).click();await expect(page.getByText('Ficha de ponto salva.')).toBeVisible();await page.reload();await page.getByLabel('Funcionário',{exact:true}).selectOption(String(employee.id));await expect(page.locator('.time-table tbody tr')).toHaveCount(30);await shot(page,'08-ponto')
 })
 
 test('contas e DRE: novo lançamento aparece na folha e origem permanece protegida',async({page})=>{
- const {company}=await seed(page);await go(page,'/rh/folha');await page.getByLabel('Competência').fill('2026-10');await page.getByRole('button',{name:'Encargos da empresa',exact:true}).click();await page.getByRole('link',{name:'Abrir contas a pagar',exact:true}).click();await expect(page.getByRole('heading',{name:'Contas da empresa'})).toBeVisible()
+ const {company,employee}=await seed(page);
+ // A visão geral é somente leitura; inicialize a folha em uma ação expressa.
+ await page.evaluate(id=>window.fluxoDre.folha.employee({funcionario_id:id,competencia:'2026-10'}),employee.id)
+ await go(page,'/rh/folha');await page.getByLabel('Competência').fill('2026-10');await page.getByRole('button',{name:'Encargos da empresa',exact:true}).click();await page.getByRole('link',{name:'Abrir contas a pagar',exact:true}).click();await expect(page.getByRole('heading',{name:'Contas da empresa'})).toBeVisible()
  await page.getByRole('button',{name:'Nova conta'}).click();const dialog=page.getByRole('dialog',{name:'Nova conta'});await dialog.getByLabel('Empresa',{exact:false}).selectOption(String(company.id));await dialog.getByLabel('Descrição').fill('Internet QA');await dialog.getByLabel('Valor',{exact:false}).fill('150,00');await dialog.getByRole('button',{name:'Salvar',exact:true}).click();await expect(page.getByText('Internet QA', {exact:true})).toBeVisible();await shot(page,'09-contas')
  await page.getByRole('link',{name:'Consultar DRE'}).click();await expect(page.getByRole('heading',{name:'DRE por competência'})).toBeVisible();await shot(page,'10-dre')
  const rows=await page.evaluate(()=>window.fluxoDre.relatorios.dre({competencia:'2026-10'}));expect(rows.reduce((sum:number,x:any)=>sum+x.valor,0)).toBe(265000)
@@ -120,4 +124,23 @@ test('tema roxo: hierarquia, janela compacta, busca e validação preservam a ta
  await page.getByRole('link',{name:'Empresas',exact:true}).click();await page.getByRole('button',{name:'Nova empresa'}).click()
  await page.getByRole('button',{name:'Salvar empresa'}).click();await expect(page.getByRole('alert').filter({hasText:'preencha este campo'})).toBeVisible();await expect(page.getByLabel('Razão social')).toBeFocused()
  await shot(page,'17-validacao-roxa')
+})
+
+test('P1-P4: férias canônicas por empresa e tela de gestão de pessoas',async({page})=>{
+ const {company,employee}=await seed(page)
+ await go(page,'/rh/gestao')
+ await page.getByLabel('Empresa',{exact:true}).selectOption(String(company.id))
+ await page.getByRole('button',{name:'Novo registro',exact:true}).click()
+ const form=page.getByRole('dialog',{name:'Novo · Férias'})
+ await form.getByLabel('Título').fill('Férias QA setembro')
+ await form.getByLabel('Colaborador').selectOption(String(employee.id))
+ await form.getByLabel('Início / data').fill('2027-09-01')
+ await form.getByLabel('Fim / prazo').fill('2027-09-15')
+ await form.getByLabel('Situação').selectOption('aprovado')
+ await form.getByRole('button',{name:'Salvar',exact:true}).click()
+ await expect(page.getByText('Férias QA setembro')).toBeVisible()
+ await shot(page,'18-ferias-rh')
+ const stored=await page.evaluate(async companyId=>window.fluxoDre.rh.list({empresa_id:companyId,tipo:'ferias'}),company.id)
+ expect(stored).toHaveLength(1)
+ expect(stored[0].estado).toBe('aprovado')
 })

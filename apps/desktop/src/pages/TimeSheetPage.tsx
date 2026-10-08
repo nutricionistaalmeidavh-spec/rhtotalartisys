@@ -14,6 +14,7 @@ export default function TimeSheetPage(){
   const [employee,setEmployee]=useState(params.get('funcionario')||'')
   const [version,setVersion]=useState(0)
   const [marks,setMarks]=useState<any[]>([])
+  const [reviewConfirmed,setReviewConfirmed]=useState(false)
   const [busy,setBusy]=useState(false)
   const [message,setMessage]=useState('')
   const [batchOpen,setBatchOpen]=useState(false)
@@ -26,13 +27,13 @@ export default function TimeSheetPage(){
   const companies=useAsync(()=>window.fluxoDre.empresas.list(),[])
   const effectiveBatchCompanyId=batchCompanyId||(companies.data?.length===1?String(companies.data[0].id):'')
   const point=useAsync(()=>employee?window.fluxoDre.ponto.get({funcionario_id:Number(employee),competencia}):Promise.resolve(null),[employee,competencia,version])
-  useEffect(()=>setMarks(point.data?.marks||[]),[point.data])
+  useEffect(()=>{setMarks(point.data?.marks||[]);setReviewConfirmed(false)},[point.data])
   const selected=employees.data?.find((item:any)=>item.id===Number(employee))
   const cargo=cargos.data?.find((item:any)=>item.id===selected?.cargo_id)
-  const update=(id:number,key:string,value:string)=>setMarks((rows)=>rows.map((row)=>{if(row.id!==id)return row;const next={...row,[key]:value};if(key==='tipo'&&value!=='trabalho'){next.entrada='';next.intervalo_saida='';next.intervalo_entrada='';next.saida='';next.observacoes=next.observacoes||typeLabels[value]||''}return next}))
-  const autoFill=async()=>{if(!window.confirm("Criar horários simulados? Eles substituem as marcações do mês. Confira a jornada real antes de gerar documentos."))return;setBusy(true);try{const result=await window.fluxoDre.ponto.autoFill({funcionario_id:Number(employee),competencia});setMarks(result.marks);setMessage('Pré-preenchimento simulado concluído. Verifique as marcações com a jornada real antes de gerar documentos.')}catch(e:any){setMessage(e.message)}finally{setBusy(false)}}
-  const save=async()=>{setBusy(true);try{await window.fluxoDre.ponto.save({funcionario_id:Number(employee),competencia,marks});setVersion((v)=>v+1);setMessage('Ficha de ponto salva.')}catch(e:any){setMessage(e.message)}finally{setBusy(false)}}
-  const generate=async()=>{setBusy(true);setMessage('');try{await window.fluxoDre.ponto.save({funcionario_id:Number(employee),competencia,marks});const result=await window.fluxoDre.ponto.generate({funcionario_id:Number(employee),competencia,paymentDate:today()});setMessage('Ficha de ponto e recibos configurados foram gerados na pasta mensal do funcionário.');if(result.point?.path)await window.fluxoDre.documentos.reveal(result.point.path);else if(result.receipt?.path)await window.fluxoDre.documentos.reveal(result.receipt.path)}catch(error:any){setMessage(error?.message||String(error))}finally{setBusy(false)}}
+  const update=(id:number,key:string,value:string)=>{setReviewConfirmed(false);setMarks((rows)=>rows.map((row)=>{if(row.id!==id)return row;const next={...row,[key]:value};if(key==='tipo'&&value!=='trabalho'){next.entrada='';next.intervalo_saida='';next.intervalo_entrada='';next.saida='';next.observacoes=next.observacoes||typeLabels[value]||''}return next}))}
+  const autoFill=async()=>{if(!window.confirm("Criar horários simulados? Eles substituem as marcações do mês. Confira a jornada real antes de gerar documentos."))return;setBusy(true);try{const result=await window.fluxoDre.ponto.autoFill({funcionario_id:Number(employee),competencia});setMarks(result.marks);setReviewConfirmed(false);setMessage('Pré-preenchimento simulado concluído. Verifique as marcações com a jornada real antes de gerar documentos.')}catch(e:any){setMessage(e.message)}finally{setBusy(false)}}
+  const save=async()=>{setBusy(true);try{await window.fluxoDre.ponto.save({funcionario_id:Number(employee),competencia,marks,confirmado_real:reviewConfirmed});setReviewConfirmed(false);setVersion((v)=>v+1);setMessage('Ficha de ponto salva.')}catch(e:any){setMessage(e.message)}finally{setBusy(false)}}
+  const generate=async()=>{if(!reviewConfirmed){setMessage('Revise e confirme as marcações reais antes de gerar documentos.');return}setBusy(true);setMessage('');try{await window.fluxoDre.ponto.save({funcionario_id:Number(employee),competencia,marks,confirmado_real:reviewConfirmed});const result=await window.fluxoDre.ponto.generate({funcionario_id:Number(employee),competencia,paymentDate:today()});setMessage('Ficha de ponto e recibos configurados foram gerados na pasta mensal do funcionário.');if(result.point?.path)await window.fluxoDre.documentos.reveal(result.point.path);else if(result.receipt?.path)await window.fluxoDre.documentos.reveal(result.receipt.path)}catch(error:any){setMessage(error?.message||String(error))}finally{setBusy(false)}}
   const summarize=(result:any[])=>{const ok=result.filter((item:any)=>item.ok),failed=result.filter((item:any)=>!item.ok);return failed.length?ok.length+' funcionários processados. '+failed.length+' não foram processados por cadastro incompleto: '+failed.map((item:any)=>item.nome).join(', ')+'.':ok.length+' funcionários processados.'}
   const selectionOk=()=>{if(!effectiveBatchCompanyId){setMessage('Selecione uma empresa antes de processar o lote.');return false}if(printPoint||printReceipts)return true;setMessage('Selecione fichas de ponto e/ou recibos para gerar ou imprimir.');return false}
   const generateAll=async()=>{if(!selectionOk())return;setBusy(true);setMessage('');try{const result=await window.fluxoDre.ponto.generateAll({competencia,empresa_id:Number(effectiveBatchCompanyId),paymentDate:today(),point:printPoint,receipts:printReceipts});setMessage(summarize(result));setBatchOpen(false)}catch(error:any){setMessage(error?.message||String(error))}finally{setBusy(false)}}
@@ -51,7 +52,7 @@ export default function TimeSheetPage(){
         <div><h2 style={{margin:'0 0 5px',fontSize:15}}>Documentos da competência</h2><p style={{margin:0,maxWidth:700}}>Gere os documentos do colaborador selecionado ou abra o lote mensal para gerar, imprimir ou reimprimir todos.</p></div>
         <div className="row-actions" style={{gap:8,flexWrap:'wrap'}}>
           <Button variant="secondary" icon={<UsersRound size={16}/>} onClick={()=>setBatchOpen((value)=>!value)} disabled={busy}>Gerar e imprimir todos</Button>
-          <Button icon={<FileDown size={15}/>} onClick={generate} disabled={busy||!employee||!marks.length}>Gerar deste funcionário</Button>
+          <Button icon={<FileDown size={15}/>} onClick={generate} disabled={busy||!employee||!marks.length||!reviewConfirmed}>Gerar deste funcionário</Button>
         </div>
       </div>
       <div style={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:10,marginTop:14}}>
@@ -71,13 +72,26 @@ export default function TimeSheetPage(){
 
     {!employee?<Card><Empty title="Selecione um funcionário" description="Escolha um colaborador para revisar as marcações e gerar os documentos da competência."/></Card>:point.loading?<Card><Loading label="Carregando ficha de ponto..."/></Card>:<>
       <div className="time-banner"><div><strong>{selected?.nome}</strong><span>CPF {selected?.cpf||'não informado'} · {cargo?.nome||'Sem cargo'} · {competenceLabel(competencia)}</span></div><div className="time-schedule"><span>Jornada prevista</span><b>{point.data?.point.jornada_inicio} - {point.data?.point.intervalo_inicio} / {point.data?.point.intervalo_fim} - {point.data?.point.jornada_fim}</b></div><Status value={point.data?.point.status||'rascunho'}/></div>
+      {point.data?.summary&&<Card style={{marginTop:14,padding:14}}>
+        <h2 style={{fontSize:14,margin:'0 0 8px'}}>Apuração indicativa de horas</h2>
+        <div style={{display:'flex',gap:20,flexWrap:'wrap',fontSize:12}}>
+          <span><b>Trabalhadas:</b> {(point.data.summary.minutos_trabalhados/60).toFixed(1)} h</span>
+          <span><b>Previstas:</b> {(point.data.summary.minutos_previstos/60).toFixed(1)} h</span>
+          <span><b>Extras:</b> {(point.data.summary.minutos_extras/60).toFixed(1)} h</span>
+          <span><b>Déficit:</b> {(point.data.summary.minutos_deficit/60).toFixed(1)} h</span>
+          <span><b>Saldo:</b> {(point.data.summary.saldo_minutos/60).toFixed(1)} h</span>
+          <span><b>Pendências:</b> {point.data.summary.pendencias.length}</span>
+        </div>
+        <small style={{display:'block',marginTop:8}}>Apuração interna, não fiscal. Exige escalas e marcações reais conferidas.</small>
+      </Card>}
       <Card style={{marginTop:14}}>
         <div className="card-header" style={{cursor:'pointer'}} onClick={()=>setMarksOpen((value)=>!value)}>
           <div><h2>Editar marcações do mês</h2><p style={{margin:'4px 0 0'}}>Preenchimento automático, revisão das exceções e ajuste manual das quatro batidas diárias.</p></div>
           <Button variant="ghost" onClick={(event)=>{event.stopPropagation();setMarksOpen((value)=>!value)}}>{marksOpen?'Recolher':'Expandir'}</Button>
         </div>
         {marksOpen&&<>
-          <div style={{display:'flex',justifyContent:'flex-end',gap:8,padding:'12px 16px 0',flexWrap:'wrap'}}><Button variant="secondary" icon={<Sparkles size={15}/>} onClick={autoFill} disabled={busy}>Preencher automaticamente</Button><Button variant="secondary" icon={<Save size={15}/>} onClick={save} disabled={busy||!marks.length}>Salvar</Button></div>
+          <label style={{display:'flex',alignItems:'center',gap:9,padding:'12px 16px 0',fontSize:12}}><input type="checkbox" checked={reviewConfirmed} onChange={e=>setReviewConfirmed(e.target.checked)}/><span>Conferi as marcações com a jornada real. Horários sugeridos são apenas simulações e exigem revisão.</span></label>
+          <div style={{display:'flex',justifyContent:'flex-end',gap:8,padding:'12px 16px 0',flexWrap:'wrap'}}><Button variant="secondary" icon={<Sparkles size={15}/>} onClick={autoFill} disabled={busy}>Preencher automaticamente</Button><Button variant="secondary" icon={<Save size={15}/>} onClick={save} disabled={busy||!marks.length||!reviewConfirmed}>Salvar</Button></div>
           {marks.length?<div className="table-wrap time-table" style={{marginTop:12}}><table><thead><tr><th>Dia</th><th>Tipo</th><th>Entrada</th><th>Saída almoço</th><th>Retorno almoço</th><th>Saída</th><th>Observações</th></tr></thead><tbody>{marks.map((row:any)=><tr key={row.data} className={row.tipo!=='trabalho'?'non-workday':''}><td><strong>{row.data.slice(-2)}</strong><small>{new Date(row.data+'T12:00:00').toLocaleDateString('pt-BR',{weekday:'short'})}</small></td><td><select value={row.tipo} onChange={(event)=>update(row.id,'tipo',event.target.value)}>{Object.entries(typeLabels).map(([value,label])=><option value={value} key={value}>{label}</option>)}</select></td>{['entrada','intervalo_saida','intervalo_entrada','saida'].map((key)=><td key={key}><input type="time" value={row[key]||''} disabled={row.tipo!=='trabalho'} onChange={(event)=>update(row.id,key,event.target.value)}/></td>)}<td><input value={row.observacoes||''} onChange={(event)=>update(row.id,'observacoes',event.target.value)} placeholder={row.tipo==='trabalho'?'Opcional':typeLabels[row.tipo]}/></td></tr>)}</tbody></table></div>:<Empty title="Ficha ainda não preenchida" description="O preenchimento automático cria horários simulados. Confira e ajuste conforme a jornada real." action={<Button icon={<Sparkles size={16}/>} onClick={autoFill}>Preencher mês</Button>}/>}
         </>}
       </Card>

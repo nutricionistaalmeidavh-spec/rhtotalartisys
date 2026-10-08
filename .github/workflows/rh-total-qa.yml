@@ -2,10 +2,7 @@ name: RH Total QA
 on:
   workflow_dispatch:
   pull_request:
-    paths:
-      - 'apps/desktop/**'
-      - 'packages/domain-core/**'
-      - '.github/workflows/rh-total-qa.yml'
+    types: [opened, ready_for_review]
 permissions:
   contents: read
 

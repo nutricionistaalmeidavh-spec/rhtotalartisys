@@ -8,6 +8,9 @@ const {PayrollExportService}=require('./services/payroll-export-service.cjs')
 const {PayrollImportFileService}=require('./services/payroll-import-file-service.cjs')
 const {TimeService}=require('./services/time-service.cjs')
 const {DocumentService}=require('./services/document-service.cjs')
+const {HrWorkspaceService}=require('./services/hr-workspace-service.cjs')
+const {HrBackupService}=require('./services/rh-backup-service.cjs')
+const {LocalAccessService,createHrLanServer}=require('./services/rh-lan-service.cjs')
 
 if(process.env.RH_TOTAL_DATA_DIR){
   require('node:fs').mkdirSync(process.env.RH_TOTAL_DATA_DIR,{recursive:true})
@@ -15,7 +18,7 @@ if(process.env.RH_TOTAL_DATA_DIR){
   app.setPath('sessionData',process.env.RH_TOTAL_DATA_DIR)
 }
 
-let db,mainWindow
+let db,mainWindow,lanServer
 
 function registerServices(){
   const dataDir=process.env.RH_TOTAL_DATA_DIR||app.getPath('userData')
@@ -26,6 +29,9 @@ function registerServices(){
   const time=new TimeService({db,fileService})
   const documents=new DocumentService({db,fileService,dialog})
   const catalog=new CatalogService({db})
+  const rh=new HrWorkspaceService({db})
+  const backups=new HrBackupService({db,dataDir})
+  const access=new LocalAccessService({db})
   const payrollExports=new PayrollExportService({payroll,dialog})
   const importFiles=new PayrollImportFileService()
   const handlers=new Map()
@@ -46,6 +52,15 @@ function registerServices(){
   register('catalog:save-link',data=>catalog.saveLink(data))
   register('catalog:save-compensation-policy',data=>catalog.saveCompensationPolicy(data))
   register('catalog:deactivate',({type,id})=>catalog.deactivate(type,id))
+
+  register('rh:list',data=>rh.list(data))
+  register('rh:get',data=>rh.get(data))
+  register('rh:save',data=>rh.save(data))
+  register('rh:remove',data=>rh.remove(data))
+  register('rh:indicators',data=>rh.indicators(data))
+  register('rh:close-payroll',data=>rh.closePayroll(data))
+  register('rh:reopen-payroll',data=>rh.reopenPayroll(data))
+  register('rh:complete-termination',data=>rh.completeTermination(data))
 
   register('payroll:overview',data=>payroll.overview(data))
   register('payroll:employee',data=>payroll.getEmployee(data))
@@ -87,14 +102,25 @@ function registerServices(){
   register('files:open',({path:filePath})=>fileService.open(filePath))
   register('files:reveal',({path:filePath})=>fileService.reveal(filePath))
 
-  register('backup:create',async()=>{
-    const fs=require('node:fs')
-    const dir=path.join(dataDir,'backups')
-    fs.mkdirSync(dir,{recursive:true})
-    const dest=path.join(dir,'rh-total-'+Date.now()+'.sqlite')
-    await db.db.backup(dest)
-    return {path:dest}
+  register('backup:create',()=>backups.create())
+  register('backup:list',()=>backups.list())
+  register('backup:verify',({path:filePath})=>backups.verify(filePath))
+  register('backup:restore',async data=>{
+    if(lanServer?.running)throw Error('Pare o servidor LAN antes de restaurar o banco.')
+    return backups.restore(data)
   })
+  register('access:accounts',()=>access.listAccounts())
+  register('access:create',data=>access.createAccount(data,{trustedDesktop:true}))
+  register('lan-rh:status',()=>({running:Boolean(lanServer?.running)}))
+  register('lan-rh:start',async data=>{
+    if(lanServer?.running)throw Error('Servidor RH já está em execução.')
+    if(!access.listAccounts().length)throw Error('Crie uma conta local de administrador antes de ativar o servidor.')
+    const host=String(data.host||'127.0.0.1')
+    const port=data.port===undefined?8765:Number(data.port)
+    lanServer=createHrLanServer({db,access,host,port,tlsKey:data.tlsKey,tlsCert:data.tlsCert})
+    try{return await lanServer.start()}catch(error){lanServer=null;throw error}
+  })
+  register('lan-rh:stop',async()=>{await lanServer?.stop();lanServer=null;return{running:false}})
 
   for(const [name,fn] of handlers)ipcMain.handle(name,async(_event,payload)=>{
     try{return {ok:true,data:await fn(payload||{})}}
@@ -118,4 +144,4 @@ app.whenReady().then(async()=>{
 })
 app.on('window-all-closed',()=>{if(process.platform!=='darwin')app.quit()})
 app.on('activate',()=>{if(BrowserWindow.getAllWindows().length===0)void createWindow()})
-app.on('before-quit',()=>db?.close())
+app.on('before-quit',()=>{void lanServer?.stop();db?.close()})

@@ -1,5 +1,5 @@
 import { NavLink, Navigate, Route, Routes } from 'react-router-dom'
-import { Building2, CalendarClock, FileArchive, ReceiptText, UsersRound, WalletCards } from 'lucide-react'
+import { Building2, CalendarClock, FileArchive, ReceiptText, UsersRound, WalletCards, ClipboardList, ShieldCheck } from 'lucide-react'
 import { WorkContextProvider } from './hooks/useWorkContext'
 import { ROUTES } from './routes/registry'
 import RhHubPage from './pages/RhHubPage'
@@ -12,6 +12,8 @@ import HrTemplatesPage from './pages/HrTemplatesPage'
 import DocumentsPage from './pages/DocumentsPage'
 import FinancePage from './pages/FinancePage'
 import CompaniesPage from './pages/CompaniesPage'
+import RhWorkspacePage from './pages/RhWorkspacePage'
+import RhAccessPage from './pages/RhAccessPage'
 
 const links=[
   {to:ROUTES.rh,icon:UsersRound,label:'Visão geral'},
@@ -22,6 +24,8 @@ const links=[
   {to:ROUTES.rhTime,icon:CalendarClock,label:'Ponto'},
   {to:ROUTES.documents,icon:FileArchive,label:'Documentos'},
   {to:ROUTES.rhTemplates,icon:FileArchive,label:'Modelos'},
+  {to:ROUTES.rhWorkspace,icon:ClipboardList,label:'Gestão RH'},
+  {to:ROUTES.rhAccess,icon:ShieldCheck,label:'Acesso e backup'},
   {to:ROUTES.companies,icon:Building2,label:'Empresas'}
 ]
 export default function App(){
@@ -41,6 +45,8 @@ export default function App(){
           <Route path={ROUTES.rhPayroll} element={<PayrollPage/>}/>
           <Route path={ROUTES.rhTime} element={<TimeSheetPage/>}/>
           <Route path={ROUTES.rhTemplates} element={<HrTemplatesPage/>}/>
+          <Route path={ROUTES.rhWorkspace} element={<RhWorkspacePage/>}/>
+          <Route path={ROUTES.rhAccess} element={<RhAccessPage/>}/>
           <Route path={ROUTES.companies} element={<CompaniesPage/>}/>
           <Route path={ROUTES.documents} element={<DocumentsPage/>}/>
           <Route path={ROUTES.finance} element={<FinancePage/>}/>
