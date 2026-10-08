@@ -118,5 +118,5 @@ interface Window { fluxoDre: {
     publishFinanceReference(obligations:any[]):Promise<any>;aiAnalyze(input:any):Promise<any>;conflicts():Promise<any>;resolveConflict(conflictId:string,resolution:'accept_desktop'|'keep_mobile'):Promise<any>
   };
   updater:{state():Promise<UpdaterState>;check():Promise<UpdaterState>;download():Promise<UpdaterState>;install():Promise<boolean>;onStateChanged(listener:(state:UpdaterState)=>void):()=>void};
-  backup:{create():Promise<any>;restore():Promise<any>;openDataFolder():Promise<any>}
+  backup:{create():Promise<any>;list():Promise<any[]>;verify(path:string):Promise<any>;restore(data:{path:string;confirm:boolean}):Promise<any>;openDataFolder():Promise<any>}
 } }
