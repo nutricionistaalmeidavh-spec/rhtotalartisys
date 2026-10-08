@@ -4,12 +4,12 @@ export default {
   theme: {
     extend: {
       colors: {
-        ink: '#121b2a',
-        canvas: '#f3f5f8',
-        primary: '#2f67d8',
-        positive: '#159a76',
-        negative: '#e04444',
-        warning: '#d89317'
+        ink: 'var(--text)',
+        canvas: 'var(--canvas)',
+        primary: 'var(--primary)',
+        positive: 'var(--positive)',
+        negative: 'var(--negative)',
+        warning: 'var(--warning)'
       },
       boxShadow: { panel: '0 1px 2px rgba(15, 23, 42, .04), 0 8px 26px rgba(15, 23, 42, .04)' }
     }

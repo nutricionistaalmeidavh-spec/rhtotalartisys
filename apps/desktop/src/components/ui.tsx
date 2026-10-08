@@ -14,8 +14,20 @@ export function Kpi({ label, value, tone = 'default', hint, icon }: { label: str
   return <Card className={`kpi kpi-${tone}`}><div className="kpi-icon">{icon}</div><div><span>{label}</span><strong>{value}</strong>{hint && <small>{hint}</small>}</div></Card>
 }
 
-export function Button({ children, variant = 'primary', icon, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'primary'|'secondary'|'danger'|'ghost'; icon?: ReactNode }) {
-  return <button className={`button button-${variant}`} {...props}>{icon}{children}</button>
+export function Button({ children, variant = 'primary', icon, onClick, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'primary'|'secondary'|'danger'|'ghost'; icon?: ReactNode }) {
+  return <button className={`button button-${variant}`} onClick={onClick} {...props}>{icon}{children}</button>
+}
+
+export function Form({children,onSubmit,...props}:React.FormHTMLAttributes<HTMLFormElement>){
+ const [error,setError]=useState(''),errorId=useId()
+ const submit=(event:React.SubmitEvent<HTMLFormElement>)=>{
+  const fields=Array.from(event.currentTarget.elements).filter((x):x is HTMLInputElement|HTMLSelectElement|HTMLTextAreaElement=>x instanceof HTMLInputElement||x instanceof HTMLSelectElement||x instanceof HTMLTextAreaElement)
+  const invalid=fields.find(x=>!x.validity.valid)
+  for(const field of fields){if(!field.validity.valid){field.setAttribute('aria-invalid','true');field.setAttribute('aria-describedby',errorId)}else{field.removeAttribute('aria-invalid');if(field.getAttribute('aria-describedby')===errorId)field.removeAttribute('aria-describedby')}}
+  if(invalid){event.preventDefault();const name=invalid.closest('label')?.querySelector('span')?.textContent?.replace(' *','')||'campo';setError(`Confira ${name}: ${invalid.validity.valueMissing?'preencha este campo.':invalid.validity.typeMismatch?'informe um valor válido.':'o valor não atende ao formato solicitado.'}`);invalid.focus();return}
+  setError('');onSubmit?.(event)
+ }
+ return <form {...props} noValidate onSubmit={submit}>{error&&<p id={errorId} className="notice error-state" role="alert">{error}</p>}{children}</form>
 }
 
 export function Loading({ label = 'Carregando dados...' }: { label?: string }) { return <div className="state"><LoaderCircle className="spin"/><p>{label}</p></div> }
@@ -25,7 +37,8 @@ export function Empty({ title = 'Nenhum registro encontrado', description = 'Adi
 export function ErrorState({ error, retry }: { error: Error; retry?: () => void }) { return <div className="state error-state"><AlertTriangle/><strong>Não foi possível carregar</strong><p>{error.message}</p>{retry && <Button onClick={retry}>Tentar novamente</Button>}<details><summary>Detalhes técnicos</summary>{(error as any).details || error.stack}</details></div> }
 
 export function SearchInput({ value, onChange, placeholder = 'Buscar...' }: { value: string; onChange: (value: string) => void; placeholder?: string }) {
-  return <label className="search"><Search size={17}/><input aria-label={placeholder} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}/></label>
+  const ref=useRef<HTMLInputElement>(null)
+  return <div className="search"><Search size={17}/><input ref={ref} aria-label={placeholder} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}/>{value&&<button type="button" className="icon-button" aria-label="Limpar busca" onClick={()=>{onChange('');ref.current?.focus()}}><X size={16}/></button>}</div>
 }
 
 export function Field({ label, children, required = false, wide = false, hint }: { label: string; children: ReactNode; required?: boolean; wide?: boolean; hint?: string }) {

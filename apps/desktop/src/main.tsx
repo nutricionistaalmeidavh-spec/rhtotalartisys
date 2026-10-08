@@ -5,9 +5,9 @@ import App from './App'
 import './styles/index.css'
 import './styles/enhancements.css'
 import './styles/kpi-overflow-fix.css'
+import './styles/rh-total.css'
+import './styles/theme.css'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode><HashRouter><App /></HashRouter></React.StrictMode>
 )
-
-import './styles/rh-total.css'
