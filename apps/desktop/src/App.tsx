@@ -39,6 +39,7 @@ export default function App(){
           <Route path={ROUTES.rhTime} element={<TimeSheetPage/>}/>
           <Route path={ROUTES.rhTemplates} element={<HrTemplatesPage/>}/>
           <Route path={ROUTES.companies} element={<CompaniesPage/>}/>
+          <Route path={ROUTES.documents} element={<Navigate to={ROUTES.rhTemplates} replace/>}/>
           <Route path={ROUTES.finance} element={<Navigate to={ROUTES.rhPayroll} replace/>}/>
           <Route path={ROUTES.dre} element={<Navigate to={ROUTES.rhPayroll} replace/>}/>
           <Route path="*" element={<Navigate to={ROUTES.rh} replace/>}/>
