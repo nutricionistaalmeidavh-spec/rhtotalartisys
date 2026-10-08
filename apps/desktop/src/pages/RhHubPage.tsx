@@ -28,7 +28,7 @@ export default function RhHubPage(){
     <section className="rh-month-overview" aria-label="Resumo da competência"><div className="rh-month-intro"><span>Seu RH em dia</span><h2>Organize a equipe.<br/>Acompanhe cada fechamento.</h2><p>Confira os pagamentos e complete os cadastros antes de gerar a documentação.</p><Link className="button button-primary" to="/rh/folha?tab=pendentes">Revisar pagamentos</Link></div>
     {employees.loading||pending.loading?<Loading/>:<div className="rh-overview-metrics"><Kpi label="Funcionários ativos" value={String(employees.data?.filter(x=>x.status==='ativo').length||0)} icon={<UsersRound size={20}/>}/><Kpi label="Pagamentos a revisar" value={String(pending.data?.length||0)} icon={<ReceiptText size={20}/>}/><Kpi label="Cadastros incompletos" value={String(incomplete.length)} icon={<BriefcaseBusiness size={20}/>}/></div>}</section>
     {!employees.loading&&!pending.loading&&<WorkQueue items={[
-      ...((pending.data?.length||0)>0?[{id:'payments',title:`${pending.data!.length} pagamentos aguardando revisão`,description:`Competência ${competencia}`,to:'/rh/folha?tab=pendentes',action:'Conferir folha'}]:[]),
+      ...((pending.data?.length||0)>0?[{id:'payments',title:`${pending.data!.length} ${pending.data!.length===1?'pagamento aguardando':'pagamentos aguardando'} revisão`,description:`Competência ${competencia}`,to:'/rh/folha?tab=pendentes',action:'Conferir folha'}]:[]),
       ...incomplete.map(x=>({id:`employee-${x.id}`,title:x.nome,description:'Complete empresa, cargo ou CPF no cadastro.',to:`/rh/admissoes?id=${x.id}`,action:'Completar cadastro'}))
     ]}/>}
     <section className="rh-admission-section" aria-labelledby="rh-admission-flow-title">
