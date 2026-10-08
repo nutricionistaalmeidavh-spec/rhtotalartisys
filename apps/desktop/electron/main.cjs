@@ -8,6 +8,7 @@ const {PayrollExportService}=require('./services/payroll-export-service.cjs')
 const {PayrollImportFileService}=require('./services/payroll-import-file-service.cjs')
 const {TimeService}=require('./services/time-service.cjs')
 const {DocumentService}=require('./services/document-service.cjs')
+const {HrWorkspaceService}=require('./services/hr-workspace-service.cjs')
 
 let db,mainWindow
 
@@ -20,6 +21,7 @@ function registerServices(){
   const time=new TimeService({db,fileService})
   const documents=new DocumentService({db,fileService,dialog})
   const catalog=new CatalogService({db})
+  const rh=new HrWorkspaceService({db})
   const payrollExports=new PayrollExportService({payroll,dialog})
   const importFiles=new PayrollImportFileService()
   const handlers=new Map()
@@ -38,6 +40,15 @@ function registerServices(){
   register('catalog:save-link',data=>catalog.saveLink(data))
   register('catalog:save-compensation-policy',data=>catalog.saveCompensationPolicy(data))
   register('catalog:deactivate',({type,id})=>catalog.deactivate(type,id))
+
+  register('rh:list',data=>rh.list(data))
+  register('rh:get',data=>rh.get(data))
+  register('rh:save',data=>rh.save(data))
+  register('rh:remove',data=>rh.remove(data))
+  register('rh:indicators',data=>rh.indicators(data))
+  register('rh:close-payroll',data=>rh.closePayroll(data))
+  register('rh:reopen-payroll',data=>rh.reopenPayroll(data))
+  register('rh:complete-termination',data=>rh.completeTermination(data))
 
   register('payroll:overview',data=>payroll.overview(data))
   register('payroll:employee',data=>payroll.getEmployee(data))
