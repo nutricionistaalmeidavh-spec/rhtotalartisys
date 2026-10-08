@@ -66,6 +66,18 @@ export default function TimeSheetPage(){
 
     {!employee?<Card><Empty title="Selecione um funcionário" description="Escolha um colaborador para revisar as marcações e gerar os documentos da competência."/></Card>:point.loading?<Card><Loading label="Carregando ficha de ponto..."/></Card>:<>
       <div className="time-banner"><div><strong>{selected?.nome}</strong><span>CPF {selected?.cpf||'não informado'} · {cargo?.nome||'Sem cargo'} · {competenceLabel(competencia)}</span></div><div className="time-schedule"><span>Jornada prevista</span><b>{point.data?.point.jornada_inicio} - {point.data?.point.intervalo_inicio} / {point.data?.point.intervalo_fim} - {point.data?.point.jornada_fim}</b></div><Status value={point.data?.point.status||'rascunho'}/></div>
+      {point.data?.summary&&<Card style={{marginTop:14,padding:14}}>
+        <h2 style={{fontSize:14,margin:'0 0 8px'}}>Apuração indicativa de horas</h2>
+        <div style={{display:'flex',gap:20,flexWrap:'wrap',fontSize:12}}>
+          <span><b>Trabalhadas:</b> {(point.data.summary.minutos_trabalhados/60).toFixed(1)} h</span>
+          <span><b>Previstas nos dias lançados:</b> {(point.data.summary.minutos_previstos/60).toFixed(1)} h</span>
+          <span><b>Extras:</b> {(point.data.summary.minutos_extras/60).toFixed(1)} h</span>
+          <span><b>Déficit:</b> {(point.data.summary.minutos_deficit/60).toFixed(1)} h</span>
+          <span><b>Saldo indicativo:</b> {(point.data.summary.saldo_minutos/60).toFixed(1)} h</span>
+          <span><b>Pendências:</b> {point.data.summary.pendencias.length}</span>
+        </div>
+        <small style={{display:'block',marginTop:8}}>Cálculo interno sem integração REP, banco de horas legal ou apuração de adicionais fiscais. Confirme escalas, acordos e marcações reais.</small>
+      </Card>}
       <Card style={{marginTop:14}}>
         <div className="card-header" style={{cursor:'pointer'}} onClick={()=>setMarksOpen((value)=>!value)}>
           <div><h2>Editar marcações do mês</h2><p style={{margin:'4px 0 0'}}>Preenchimento automático, revisão das exceções e ajuste manual das quatro batidas diárias.</p></div>
