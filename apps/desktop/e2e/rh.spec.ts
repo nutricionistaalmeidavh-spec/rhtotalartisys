@@ -59,7 +59,10 @@ test('ponto: mês na própria tela, aviso de simulação e persistência das mar
 })
 
 test('contas e DRE: novo lançamento aparece na folha e origem permanece protegida',async({page})=>{
- const {company}=await seed(page);await go(page,'/rh/folha');await page.getByLabel('Competência').fill('2026-10');await page.getByRole('button',{name:'Encargos da empresa',exact:true}).click();await page.getByRole('link',{name:'Abrir contas a pagar',exact:true}).click();await expect(page.getByRole('heading',{name:'Contas da empresa'})).toBeVisible()
+ const {company,employee}=await seed(page);
+ // A consulta geral é read-only; inicialize a folha pela ação explícita do funcionário.
+ await page.evaluate(id=>window.fluxoDre.folha.employee({funcionario_id:id,competencia:'2026-10'}),employee.id)
+ await go(page,'/rh/folha');await page.getByLabel('Competência').fill('2026-10');await page.getByRole('button',{name:'Encargos da empresa',exact:true}).click();await page.getByRole('link',{name:'Abrir contas a pagar',exact:true}).click();await expect(page.getByRole('heading',{name:'Contas da empresa'})).toBeVisible()
  await page.getByRole('button',{name:'Nova conta'}).click();const dialog=page.getByRole('dialog',{name:'Nova conta'});await dialog.getByLabel('Empresa',{exact:false}).selectOption(String(company.id));await dialog.getByLabel('Descrição').fill('Internet QA');await dialog.getByLabel('Valor',{exact:false}).fill('150,00');await dialog.getByRole('button',{name:'Salvar',exact:true}).click();await expect(page.getByText('Internet QA', {exact:true})).toBeVisible();await shot(page,'09-contas')
  await page.getByRole('link',{name:'Consultar DRE'}).click();await expect(page.getByRole('heading',{name:'DRE por competência'})).toBeVisible();await shot(page,'10-dre')
  const rows=await page.evaluate(()=>window.fluxoDre.relatorios.dre({competencia:'2026-10'}));expect(rows.reduce((sum:number,x:any)=>sum+x.valor,0)).toBe(265000)
