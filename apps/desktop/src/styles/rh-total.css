@@ -14,3 +14,8 @@ html,body,#root {min-width:0;min-height:100%;margin:0}
 .rh-total-company strong,.rh-total-company small {display:block}
 .rh-total-company small {color:var(--muted);margin-top:4px}
 @media(max-width:760px){.rh-total-topbar{padding:8px 12px;gap:7px}.rh-total-topbar nav{width:100%;overflow-x:auto;flex-wrap:nowrap}.rh-total-nav{white-space:nowrap}.rh-total-main{padding:16px 12px}.rh-total-companies{grid-template-columns:1fr}}
+
+.template-visual-editor{min-height:230px;background:white;color:#111827;border:1px solid #9ca3af;border-radius:8px;padding:18px;line-height:1.6;overflow:auto}
+.template-visual-editor:focus{outline:2px solid #4f46e5;outline-offset:2px}
+.notice[role=alert],.error-state{color:#991b1b;background:#fef2f2}
+@media print{.rh-total-topbar,.header-actions,.toolbar,.row-actions,.modal-backdrop{display:none!important}.rh-total-main{padding:0}.table-wrap{overflow:visible}.card{box-shadow:none}}

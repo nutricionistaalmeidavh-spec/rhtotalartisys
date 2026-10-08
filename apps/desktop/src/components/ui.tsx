@@ -1,6 +1,6 @@
 import { statusTone } from '../utils/ux'
 import { AlertTriangle, Check, ChevronDown, FileQuestion, LoaderCircle, Search, X } from 'lucide-react'
-import { FormEvent, ReactNode, useEffect, useRef } from 'react'
+import { FormEvent, ReactNode, useEffect, useRef, useState, useId, cloneElement, isValidElement } from 'react'
 
 export function PageHeader({ title, description, actions }: { title: string; description?: string; actions?: ReactNode }) {
   return <header className="page-header"><div><h1>{title}</h1>{description && <p>{description}</p>}</div><div className="header-actions">{actions}</div></header>
@@ -19,15 +19,19 @@ export function Button({ children, variant = 'primary', icon, ...props }: React.
 }
 
 export function Loading({ label = 'Carregando dados...' }: { label?: string }) { return <div className="state"><LoaderCircle className="spin"/><p>{label}</p></div> }
+export function Notice({ children, error = false }: { children: ReactNode; error?: boolean }) { return <div className={error?'notice error-state':'notice'} role={error?'alert':'status'}>{children}</div> }
+
 export function Empty({ title = 'Nenhum registro encontrado', description = 'Adicione o primeiro item para começar.', action }: { title?: string; description?: string; action?: ReactNode }) { return <div className="state"><FileQuestion/><strong>{title}</strong><p>{description}</p>{action}</div> }
 export function ErrorState({ error, retry }: { error: Error; retry?: () => void }) { return <div className="state error-state"><AlertTriangle/><strong>Não foi possível carregar</strong><p>{error.message}</p>{retry && <Button onClick={retry}>Tentar novamente</Button>}<details><summary>Detalhes técnicos</summary>{(error as any).details || error.stack}</details></div> }
 
 export function SearchInput({ value, onChange, placeholder = 'Buscar...' }: { value: string; onChange: (value: string) => void; placeholder?: string }) {
-  return <label className="search"><Search size={17}/><input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}/></label>
+  return <label className="search"><Search size={17}/><input aria-label={placeholder} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}/></label>
 }
 
 export function Field({ label, children, required = false, wide = false, hint }: { label: string; children: ReactNode; required?: boolean; wide?: boolean; hint?: string }) {
-  return <label className={`field ${wide ? 'field-wide' : ''}`}><span>{label}{required && ' *'}</span>{children}{hint && <small>{hint}</small>}</label>
+  const labelId=useId()
+  const control=isValidElement<any>(children)&&typeof children.type==='string'&&['input','select','textarea'].includes(children.type)?cloneElement<any>(children,{'aria-labelledby':labelId}):children
+  return <label className={`field ${wide ? 'field-wide' : ''}`}><span id={labelId}>{label}{required && ' *'}</span>{control}{hint && <small>{hint}</small>}</label>
 }
 
 export function Modal({ open, title, children, onClose, size = 'md' }: { open: boolean; title: string; children: ReactNode; onClose: () => void; size?: 'sm'|'md'|'lg'|'xl' }) {
@@ -74,11 +78,15 @@ export function FormActions({ onCancel, submitLabel = 'Salvar', loading = false 
 }
 
 export function Confirm({ open, title, description, onCancel, onConfirm, danger = false }: { open: boolean; title: string; description: string; onCancel: () => void; onConfirm: () => void; danger?: boolean }) {
-  return <Modal open={open} title={title} onClose={onCancel} size="sm"><div className="modal-body"><p>{description}</p></div><div className="form-actions"><Button variant="secondary" onClick={onCancel}>Cancelar</Button><Button variant={danger?'danger':'primary'} onClick={onConfirm}>Confirmar</Button></div></Modal>
+  const [busy,setBusy]=useState(false),[error,setError]=useState('')
+  const pending=useRef(false)
+  useEffect(()=>{if(open)setError('')},[open])
+  const confirm=async()=>{if(pending.current)return;pending.current=true;setBusy(true);setError('');try{await onConfirm()}catch(e:any){setError(e.message||String(e))}finally{pending.current=false;setBusy(false)}}
+  return <Modal open={open} title={title} onClose={()=>{if(!busy)onCancel()}} size="sm"><div className="modal-body"><p>{description}</p>{error&&<p role="alert">{error}</p>}</div><div className="form-actions"><Button disabled={busy} variant="secondary" onClick={onCancel}>Cancelar</Button><Button disabled={busy} variant={danger?'danger':'primary'} onClick={confirm}>{busy?'Confirmando...':'Confirmar'}</Button></div></Modal>
 }
 
 export function Segmented({ options, value, onChange }: { options: { value: string; label: string }[]; value: string; onChange: (value: string) => void }) {
-  return <div className="segmented">{options.map((option) => <button key={option.value} className={value === option.value ? 'active' : ''} onClick={() => onChange(option.value)}>{option.label}</button>)}</div>
+  return <div className="segmented">{options.map((option) => <button key={option.value} aria-pressed={value===option.value} className={value === option.value ? 'active' : ''} onClick={() => onChange(option.value)}>{option.label}</button>)}</div>
 }
 
 export function Status({ value }: { value: string }) {

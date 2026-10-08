@@ -1,6 +1,6 @@
 import { FormEvent, useState } from 'react'
 import { Building2, Plus } from 'lucide-react'
-import { Button, Card, Field, PageHeader, Modal, FormActions, Loading, Empty } from '../components/ui'
+import { ErrorState, Button, Card, Field, PageHeader, Modal, FormActions, Loading, Empty } from '../components/ui'
 import { useAsync } from '../hooks/useAsync'
 
 export default function CompaniesPage(){
@@ -13,6 +13,7 @@ export default function CompaniesPage(){
     try{await window.fluxoDre.empresas.save({...form,razao_social:String(form.razao_social||'').trim()});setForm(null);await companies.reload();setMessage('Empresa salva.')}
     catch(e:any){setMessage(e?.message||String(e))}finally{setBusy(false)}
   }
+  if(companies.error)return <ErrorState error={companies.error} retry={companies.reload}/>
   return <>
     <PageHeader title="Empresas" description="Cadastre as empresas cujos colaboradores serão gerenciados." actions={<Button icon={<Plus size={16}/>} onClick={()=>setForm({razao_social:'',nome_fantasia:'',cnpj:''})}>Nova empresa</Button>}/>
     {message&&<p role="status">{message}</p>}
@@ -24,7 +25,7 @@ export default function CompaniesPage(){
         <Field label="Razão social" required><input required value={form.razao_social||''} onChange={e=>setForm({...form,razao_social:e.target.value})}/></Field>
         <Field label="Nome fantasia"><input value={form.nome_fantasia||''} onChange={e=>setForm({...form,nome_fantasia:e.target.value})}/></Field>
         <Field label="CNPJ"><input value={form.cnpj||''} onChange={e=>setForm({...form,cnpj:e.target.value})}/></Field>
-      </div><FormActions onCancel={()=>setForm(null)} submitLabel={busy?'Salvando...':'Salvar empresa'}/></form>}
+      </div>{message&&<p role="alert">{message}</p>}<FormActions loading={busy} onCancel={()=>setForm(null)} submitLabel={busy?'Salvando...':'Salvar empresa'}/></form>}
     </Modal>
   </>
 }
