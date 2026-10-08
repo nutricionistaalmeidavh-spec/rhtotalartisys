@@ -14,10 +14,11 @@ describe('RH Total standalone contracts',()=>{
     for(const page of ['EmployeesPage','EmployeeRegistrationPage','CompensationPage','PayrollPage','TimeSheetPage','HrTemplatesPage'])expect(app).toContain(page)
     expect(app).not.toMatch(/WorksPage|DailyReportPage|ProcurementPage|MeasurementsPage/)
   })
-  it('retains original automatic filling, batch generation and synthetic-point disclaimer',()=>{
+  it('retains draft filling, batch generation and reviewed-point disclaimer',()=>{
     const service=read('electron/services/time-service.cjs')
     expect(service).toContain('autoFill(payload)')
     expect(service).toContain('generateForAll(payload)')
-    expect(service).toContain('Pré-preenchimento automatizado')
+    expect(service).toContain('Marcações conferidas por responsável')
+    expect(service).toContain('confirmado_real')
   })
 })
