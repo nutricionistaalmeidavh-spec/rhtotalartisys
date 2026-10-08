@@ -40,7 +40,8 @@ describe('folha de ponto mensal comercial',()=>{
     expect(()=>time.validatedData(employee.id,'2026-08')).toThrow(/Registre e confira/)
     const simulated=time.autoFill({funcionario_id:employee.id,competencia:'2026-08'})
     expect(()=>time.validatedData(employee.id,'2026-08')).toThrow(/simuladas precisam de revisão/)
-    time.save({funcionario_id:employee.id,competencia:'2026-08',marks:simulated.marks})
+    expect(()=>time.save({funcionario_id:employee.id,competencia:'2026-08',marks:simulated.marks})).toThrow(/Confirme/)
+    time.save({funcionario_id:employee.id,competencia:'2026-08',marks:simulated.marks,confirmado_real:true})
     expect(time.validatedData(employee.id,'2026-08').data.marks).toHaveLength(31)
   })
 
@@ -67,7 +68,7 @@ describe('folha de ponto mensal comercial',()=>{
     db.save('empresas',{...company,politica_recibos:'Café, Vale-alimentação'})
     time.autoFill({funcionario_id:employee.id,competencia:'2026-08'})
     const reviewed=time.get({funcionario_id:employee.id,competencia:'2026-08'})
-    time.save({funcionario_id:employee.id,competencia:'2026-08',marks:reviewed.marks})
+    time.save({funcionario_id:employee.id,competencia:'2026-08',marks:reviewed.marks,confirmado_real:true})
     const folha=db.save('folhas_pagamento',{empresa_id:employee.empresa_id,competencia:'2026-08',status:'aberta'})
     db.save('folha_lancamentos',{folha_id:folha.id,funcionario_id:employee.id,tipo:'beneficio_cafe',descricao:'Café',natureza:'credito',quinzena:1,valor_centavos:18000})
     db.save('folha_lancamentos',{folha_id:folha.id,funcionario_id:employee.id,tipo:'beneficio_vale_alimentacao',descricao:'Vale-alimentação',natureza:'credito',quinzena:1,valor_centavos:51000})
@@ -89,7 +90,7 @@ describe('folha de ponto mensal comercial',()=>{
     const {employee,time}=setup()
     time.autoFill({funcionario_id:employee.id,competencia:'2026-08'})
     const reviewed=time.get({funcionario_id:employee.id,competencia:'2026-08'})
-    time.save({funcionario_id:employee.id,competencia:'2026-08',marks:reviewed.marks})
+    time.save({funcionario_id:employee.id,competencia:'2026-08',marks:reviewed.marks,confirmado_real:true})
     time.printHtml=async(html:string,destination:string)=>{fs.mkdirSync(path.dirname(destination),{recursive:true});fs.writeFileSync(destination,html,'utf8')}
     const result=await time.generateDocuments({funcionario_id:employee.id,competencia:'2026-08',paymentDate:'2026-08-15',point:true,receipts:false})
     expect(result.point?.path).toBeTruthy()
