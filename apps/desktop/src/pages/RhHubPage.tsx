@@ -1,6 +1,7 @@
 import { BriefcaseBusiness, CalendarClock, FileArchive, ReceiptText, UsersRound, WalletCards, ClipboardList, ShieldCheck } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { Card, PageHeader } from '../components/ui'
+import { Card, Field, Kpi, PageHeader } from '../components/ui'
+import { WorkQueue } from '../components/WorkQueue'
 import { useAsync } from '../hooks/useAsync'
 import { useWorkContext } from '../hooks/useWorkContext'
 import { ErrorState, Loading } from '../components/ui'
@@ -18,16 +19,21 @@ const cards = [
 ]
 
 export default function RhHubPage(){
-  const {competencia}=useWorkContext()
+  const {competencia,setCompetencia}=useWorkContext()
   const employees=useAsync(()=>window.fluxoDre.funcionarios.list(),[])
   const pending=useAsync(()=>window.fluxoDre.folha.pending(competencia),[competencia])
   const incomplete=employees.data?.filter(x=>!x.cpf||!x.empresa_id||!x.cargo_id)||[]
   if(employees.error)return <ErrorState error={employees.error} retry={employees.reload}/>
   if(pending.error)return <ErrorState error={pending.error} retry={pending.reload}/>
   return <>
-    <PageHeader title="RH" description="Gestão dos colaboradores, remuneração, folha, ponto e documentos trabalhistas em um único fluxo."/>
-    <Card><h2>Pendências de {competencia}</h2>{employees.loading||pending.loading?<Loading/>:<><p>{pending.data?.length||0} pagamentos aguardando revisão · {incomplete.length} cadastros incompletos</p><Link to="/rh/folha?tab=pendentes">Revisar pagamentos</Link>{incomplete.map(x=><p key={x.id}><Link to={`/rh/admissoes?id=${x.id}`}>Completar cadastro de {x.nome}</Link></p>)}</>}</Card>
-    <section aria-labelledby="rh-admission-flow-title">
+    <PageHeader title="Visão geral do RH" description="Sua equipe e as próximas tarefas, no mesmo lugar." actions={<Field label="Competência"><input type="month" value={competencia} onChange={e=>setCompetencia(e.target.value)}/></Field>}/>
+    <section className="rh-month-overview" aria-label="Resumo da competência"><div className="rh-month-intro"><span>Seu RH em dia</span><h2>Organize a equipe.<br/>Acompanhe cada fechamento.</h2><p>Confira os pagamentos e complete os cadastros antes de gerar a documentação.</p><Link className="button button-primary" to="/rh/folha?tab=pendentes">Revisar pagamentos</Link></div>
+    {employees.loading||pending.loading?<Loading/>:<div className="rh-overview-metrics"><Kpi label="Funcionários ativos" value={String(employees.data?.filter(x=>x.status==='ativo').length||0)} icon={<UsersRound size={20}/>}/><Kpi label="Pagamentos a revisar" value={String(pending.data?.length||0)} icon={<ReceiptText size={20}/>}/><Kpi label="Cadastros incompletos" value={String(incomplete.length)} icon={<BriefcaseBusiness size={20}/>}/></div>}</section>
+    {!employees.loading&&!pending.loading&&<WorkQueue items={[
+      ...((pending.data?.length||0)>0?[{id:'payments',title:`${pending.data!.length} ${pending.data!.length===1?'pagamento aguardando':'pagamentos aguardando'} revisão`,description:`Competência ${competencia}`,to:'/rh/folha?tab=pendentes',action:'Conferir folha'}]:[]),
+      ...incomplete.map(x=>({id:`employee-${x.id}`,title:x.nome,description:'Complete empresa, cargo ou CPF no cadastro.',to:`/rh/admissoes?id=${x.id}`,action:'Completar cadastro'}))
+    ]}/>}
+    <section className="rh-admission-section" aria-labelledby="rh-admission-flow-title">
       <div className="section-heading">
         <div>
           <h2 id="rh-admission-flow-title">Fluxo de admissão</h2>
@@ -42,7 +48,7 @@ export default function RhHubPage(){
         <li><Link to={`${ROUTES.documents}?context=rh`}>5. Conferência</Link><small>Revise, imprima e acompanhe os documentos de RH.</small></li>
       </ol>
     </section>
-    <div className="artisys-rh-hub">
+    <div className="rh-panel-heading"><div><h2>Áreas de trabalho</h2><p>Acesse a rotina que você precisa resolver.</p></div></div><div className="artisys-rh-hub">
       {cards.map(({to,title,description,icon:Icon})=><Link to={to} key={to} className="rh-card-link"><Card className="artisys-rh-card">
         <div className="artisys-rh-card-body">
           <div className="artisys-rh-card-icon"><Icon size={20}/></div>
