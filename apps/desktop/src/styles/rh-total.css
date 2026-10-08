@@ -1,0 +1,16 @@
+
+html,body,#root {min-width:0;min-height:100%;margin:0}
+.rh-total-shell {min-height:100vh;background:#f5f6f9}
+.rh-total-topbar {position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:25px;flex-wrap:wrap;padding:10px 22px;background:#111827;color:#fff;border-bottom:1px solid #2b3545}
+.rh-total-brand {flex-shrink:0;color:#fff;text-decoration:none;font-weight:800;letter-spacing:-.03em;font-size:19px}
+.rh-total-brand span {color:#a5b4fc;font-weight:600}
+.rh-total-topbar nav {display:flex;flex-wrap:wrap;gap:4px}
+.rh-total-nav {display:flex;align-items:center;gap:7px;padding:9px 11px;border-radius:7px;color:#cbd5e1;text-decoration:none;font-size:12px;font-weight:600}
+.rh-total-nav:hover,.rh-total-nav.active {background:#334155;color:#fff}
+.rh-total-main {max-width:1600px;margin:auto;padding:26px 30px;min-width:0}
+.rh-total-companies {display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:14px}
+.rh-total-company {display:flex;gap:14px;align-items:center}
+.rh-total-company > div {flex:1;min-width:0}
+.rh-total-company strong,.rh-total-company small {display:block}
+.rh-total-company small {color:var(--muted);margin-top:4px}
+@media(max-width:760px){.rh-total-topbar{padding:8px 12px;gap:7px}.rh-total-topbar nav{width:100%;overflow-x:auto;flex-wrap:nowrap}.rh-total-nav{white-space:nowrap}.rh-total-main{padding:16px 12px}.rh-total-companies{grid-template-columns:1fr}}

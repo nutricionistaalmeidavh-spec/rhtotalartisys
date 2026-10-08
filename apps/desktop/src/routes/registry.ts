@@ -1,0 +1,1 @@
+export const ROUTES=Object.freeze({dashboard:'/',rh:'/rh',rhEmployees:'/rh/funcionarios',rhAdmissions:'/rh/admissoes',rhCompensation:'/rh/remuneracao',rhPayroll:'/rh/folha',rhTime:'/rh/ponto',rhTemplates:'/rh/modelos',companies:'/empresas',finance:'/financeiro',dre:'/dre'} as const)
