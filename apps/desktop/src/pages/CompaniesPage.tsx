@@ -1,3 +1,4 @@
+import { Form } from '../components/ui'
 import { FormEvent, useState } from 'react'
 import { Building2, Plus } from 'lucide-react'
 import { ErrorState, Button, Card, Field, PageHeader, Modal, FormActions, Loading, Empty } from '../components/ui'
@@ -21,11 +22,11 @@ export default function CompaniesPage(){
       <div className="rh-total-company"><Building2 size={22}/><div><strong>{company.nome_fantasia||company.razao_social}</strong><small>{company.razao_social} · CNPJ {company.cnpj||'não informado'}</small></div><Button variant="secondary" onClick={()=>setForm(company)}>Editar</Button></div>
     </Card>)}</div>:<Card><Empty title="Nenhuma empresa cadastrada" description="Cadastre uma empresa para iniciar os registros do RH."/></Card>}
     <Modal open={!!form} title={form?.id?'Editar empresa':'Nova empresa'} onClose={()=>setForm(null)}>
-      {form&&<form onSubmit={save}><div className="modal-body form-grid">
+      {form&&<Form noValidate onSubmit={save}><div className="modal-body form-grid">
         <Field label="Razão social" required><input required value={form.razao_social||''} onChange={e=>setForm({...form,razao_social:e.target.value})}/></Field>
         <Field label="Nome fantasia"><input value={form.nome_fantasia||''} onChange={e=>setForm({...form,nome_fantasia:e.target.value})}/></Field>
         <Field label="CNPJ"><input value={form.cnpj||''} onChange={e=>setForm({...form,cnpj:e.target.value})}/></Field>
-      </div>{message&&<p role="alert">{message}</p>}<FormActions loading={busy} onCancel={()=>setForm(null)} submitLabel={busy?'Salvando...':'Salvar empresa'}/></form>}
+      </div>{message&&<p role="alert">{message}</p>}<FormActions loading={busy} onCancel={()=>setForm(null)} submitLabel={busy?'Salvando...':'Salvar empresa'}/></Form>}
     </Modal>
   </>
 }

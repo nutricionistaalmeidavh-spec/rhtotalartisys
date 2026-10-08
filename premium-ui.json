@@ -1,0 +1,11 @@
+{
+ "profile":"product-admin",
+ "sourceRoots":["apps/desktop/src"],
+ "locale":"pt-BR",
+ "canonicalMap":"UX-CONTRACT.md",
+ "requiredCapabilities":["Select/Listbox","Date","Form","Scrollbar","Toast","CRUD"],
+ "ownership":{"Select/Listbox":"native","Date":"native"},
+ "requiredCommands":["lint","unit","build","e2e"],
+ "commands":{"lint":"npm --prefix apps/desktop run lint","unit":"npm --prefix apps/desktop test","build":"npm --prefix apps/desktop run build","e2e":"cd apps/desktop && xvfb-run -a npm run test:e2e"},
+ "evidence":{"crudFullFlow":"apps/desktop/e2e/rh.spec.ts","failurePaths":"apps/desktop/e2e/rh.spec.ts"}
+}

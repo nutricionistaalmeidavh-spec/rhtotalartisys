@@ -3,12 +3,14 @@ import {mkdtemp,rm} from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 
+// Visual contracts complement workflow checks: missing styles must fail QA.
+
 // Pattern reused from Obra na Mão QA: real Electron + isolated data + traces + telemetry.
 const test=base.extend<{app:ElectronApplication;page:Page;dataDir:string;runtimeErrors:string[]}>({
  dataDir:async({},use)=>{const dir=await mkdtemp(path.join(os.tmpdir(),'rh-total-qa-'));try{await use(dir)}finally{await rm(dir,{recursive:true,force:true})}},
  app:async({dataDir},use)=>{const app=await electron.launch({args:['.', '--no-sandbox',...(process.env.RH_QA_HEADLESS?['--ozone-platform=headless','--disable-gpu']:[])],cwd:process.cwd(),env:{...process.env,RH_TOTAL_DATA_DIR:dataDir}});await app.context().tracing.start({screenshots:true,snapshots:true,sources:true});try{await use(app)}finally{await app.context().tracing.stop({path:test.info().outputPath('trace.zip')});await app.close()}},
  runtimeErrors:async({},use)=>{const errors:string[]=[];await use(errors);expect(errors,'Renderer must not throw').toEqual([])},
- page:async({app,runtimeErrors},use)=>{const page=await app.firstWindow();page.on('pageerror',e=>runtimeErrors.push(e.message));await page.getByRole('heading',{name:'RH',exact:true}).waitFor();try{await use(page)}finally{await page.screenshot({path:test.info().outputPath('final-screen.png'),fullPage:true});await test.info().attach('runtime-errors',{body:JSON.stringify(runtimeErrors),contentType:'application/json'})}},
+  page:async({app,runtimeErrors},use)=>{const page=await app.firstWindow();page.on('pageerror',e=>runtimeErrors.push(e.message));await page.getByRole('heading',{name:'Visão geral do RH',exact:true}).waitFor();try{await use(page)}finally{await page.screenshot({path:test.info().outputPath('final-screen.png'),fullPage:true});await test.info().attach('runtime-errors',{body:JSON.stringify(runtimeErrors),contentType:'application/json'})}},
 })
 async function go(page:Page,route:string){await page.evaluate(route=>{location.hash=route},route)}
 async function shot(page:Page,name:string){const file=test.info().outputPath(name+'.png');await page.screenshot({path:file,fullPage:true});await test.info().attach(name,{path:file,contentType:'image/png'})}
@@ -96,7 +98,26 @@ test('pagamento parcial: registro permanece salvo quando os documentos falham',a
 test('telas em janela compacta mantêm navegação e captura de todos os módulos',async({app,page})=>{
  await seed(page)
  await app.evaluate(({BrowserWindow})=>{const win=BrowserWindow.getAllWindows()[0];win.setSize(800,720)})
- for(const [name,route,title] of [['visao-geral','/rh','RH'],['funcionarios','/rh/funcionarios','Funcionários'],['admissao','/rh/admissoes','Registro funcionário'],['remuneracao','/rh/remuneracao','Cargos e remuneração'],['folha','/rh/folha','Controle de pagamento'],['ponto','/rh/ponto','Folhas de ponto'],['documentos','/documentos','Documentos dos funcionários'],['modelos','/rh/modelos','RH · Modelos e regras admissionais'],['empresas','/empresas','Empresas']]){
+ for(const [name,route,title] of [['visao-geral','/rh','Visão geral do RH'],['funcionarios','/rh/funcionarios','Funcionários'],['admissao','/rh/admissoes','Registro funcionário'],['remuneracao','/rh/remuneracao','Cargos e remuneração'],['folha','/rh/folha','Controle de pagamento'],['ponto','/rh/ponto','Folhas de ponto'],['documentos','/documentos','Documentos dos funcionários'],['modelos','/rh/modelos','RH · Modelos e regras admissionais'],['empresas','/empresas','Empresas']]){
   await go(page,route);await expect(page.getByRole('heading',{name:title,exact:true})).toBeVisible();await expect(page.getByRole('navigation',{name:'Navegação do RH'})).toBeVisible();await shot(page,'compacta-'+name)
  }
+})
+
+test('tema roxo: hierarquia, janela compacta, busca e validação preservam a tarefa',async({app,page})=>{
+ await seed(page);await go(page,'/empresas');await expect(page.getByRole('heading',{name:'Empresas',exact:true})).toBeVisible();await go(page,'/rh')
+ await expect(page.getByRole('heading',{name:'Visão geral do RH'})).toBeVisible()
+ expect(await page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--primary').trim())).toBe('#820ad1')
+ expect(await page.locator('.artisys-rh-hub').evaluate(el=>getComputedStyle(el).display)).toBe('grid')
+ await expect(page.locator('.kpi').filter({hasText:'Funcionários ativos'}).locator('strong')).toHaveText('1')
+ expect(await page.locator('.rh-total-topbar').evaluate(el=>getComputedStyle(el).backgroundColor)).toBe('rgb(255, 255, 255)')
+ await shot(page,'15-visao-geral-roxa')
+ await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setSize(800,720))
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true)
+ await shot(page,'16-visao-geral-compacta-roxa')
+ await page.getByRole('link',{name:'Funcionários',exact:true}).click()
+ const search=page.getByRole('textbox',{name:'Buscar por nome ou CPF...'})
+ await search.fill('Maria');await page.getByRole('button',{name:'Limpar busca'}).click();await expect(search).toHaveValue('');await expect(search).toBeFocused()
+ await page.getByRole('link',{name:'Empresas',exact:true}).click();await page.getByRole('button',{name:'Nova empresa'}).click()
+ await page.getByRole('button',{name:'Salvar empresa'}).click();await expect(page.getByRole('alert').filter({hasText:'preencha este campo'})).toBeVisible();await expect(page.getByLabel('Razão social')).toBeFocused()
+ await shot(page,'17-validacao-roxa')
 })
