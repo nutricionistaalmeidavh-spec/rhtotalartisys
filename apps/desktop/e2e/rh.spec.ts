@@ -54,6 +54,7 @@ test('ponto: mês na própria tela, aviso de simulação e persistência das mar
  const {employee}=await seed(page);await go(page,'/rh/ponto');await page.getByLabel('Competência').fill('2026-09');await page.getByLabel('Funcionário',{exact:true}).selectOption(String(employee.id))
  await expect(page.getByText('O preenchimento automático cria horários simulados. Confira e ajuste conforme a jornada real.')).toBeVisible()
  let warning='';page.once('dialog',async d=>{warning=d.message();await d.accept()});await page.getByRole('button',{name:'Preencher mês',exact:true}).click();await expect(page.locator('.time-table tbody tr')).toHaveCount(30);expect(warning).toContain('horários simulados')
+ await page.getByRole('checkbox',{name:/Conferi as marcações/}).check();
  await page.getByRole('button',{name:'Salvar',exact:true}).click();await expect(page.getByText('Ficha de ponto salva.')).toBeVisible();await page.reload();await page.getByLabel('Funcionário',{exact:true}).selectOption(String(employee.id));await expect(page.locator('.time-table tbody tr')).toHaveCount(30);await shot(page,'08-ponto')
 })
 
@@ -99,4 +100,23 @@ test('telas em janela compacta mantêm navegação e captura de todos os módulo
  for(const [name,route,title] of [['visao-geral','/rh','RH'],['funcionarios','/rh/funcionarios','Funcionários'],['admissao','/rh/admissoes','Registro funcionário'],['remuneracao','/rh/remuneracao','Cargos e remuneração'],['folha','/rh/folha','Controle de pagamento'],['ponto','/rh/ponto','Folhas de ponto'],['documentos','/documentos','Documentos dos funcionários'],['modelos','/rh/modelos','RH · Modelos e regras admissionais'],['empresas','/empresas','Empresas']]){
   await go(page,route);await expect(page.getByRole('heading',{name:title,exact:true})).toBeVisible();await expect(page.getByRole('navigation',{name:'Navegação do RH'})).toBeVisible();await shot(page,'compacta-'+name)
  }
+})
+
+test('P1-P4: férias canônicas por empresa e tela de gestão de pessoas',async({page})=>{
+ const {company,employee}=await seed(page)
+ await go(page,'/rh/gestao')
+ await page.getByLabel('Empresa',{exact:true}).selectOption(String(company.id))
+ await page.getByRole('button',{name:'Novo registro',exact:true}).click()
+ const form=page.getByRole('dialog',{name:'Novo · Férias'})
+ await form.getByLabel('Título').fill('Férias QA setembro')
+ await form.getByLabel('Colaborador').selectOption(String(employee.id))
+ await form.getByLabel('Início / data').fill('2027-09-01')
+ await form.getByLabel('Fim / prazo').fill('2027-09-15')
+ await form.getByLabel('Situação').selectOption('aprovado')
+ await form.getByRole('button',{name:'Salvar',exact:true}).click()
+ await expect(page.getByText('Férias QA setembro')).toBeVisible()
+ await shot(page,'16-ferias-rh')
+ const stored=await page.evaluate(async companyId=>window.fluxoDre.rh.list({empresa_id:companyId,tipo:'ferias'}),company.id)
+ expect(stored).toHaveLength(1)
+ expect(stored[0].estado).toBe('aprovado')
 })
