@@ -1,0 +1,166 @@
+const { contextBridge, ipcRenderer, webUtils } = require('electron')
+
+const revisionConflictListeners = new Set()
+
+function notifyRevisionConflict(details) {
+  for (const listener of revisionConflictListeners) {
+    try { listener(details) } catch {}
+  }
+}
+
+async function call(channel, payload) {
+  const response = await ipcRenderer.invoke(channel, payload)
+  if (!response?.ok) {
+    const error = new Error(response?.error?.message || 'Não foi possível concluir a operação.')
+    error.details = response?.error?.details
+    error.code = response?.error?.code
+    error.status = response?.error?.status
+    error.resourceType = response?.error?.resourceType
+    error.resourceId = response?.error?.resourceId
+    error.expectedRevision = response?.error?.expectedRevision
+    error.currentRevision = response?.error?.currentRevision
+    error.current = response?.error?.current
+    if (response?.error?.code === 'revision_conflict') {
+      notifyRevisionConflict({
+        resourceType: error.resourceType,
+        resourceId: error.resourceId,
+        expectedRevision: error.expectedRevision,
+        currentRevision: error.currentRevision,
+        current: error.current
+      })
+    }
+    throw error
+  }
+  return response.data
+}
+const entity = (table) => ({ list: (filters) => call('entity:list', { table, filters }), get: (id) => call('entity:get', { table, id }), save: (data) => call('entity:save', { table, data }), remove: (id, revision) => call('entity:remove', { table, id, revision }) })
+
+contextBridge.exposeInMainWorld('fluxoDre', {
+  app: { bootstrap: () => call('app:bootstrap'), retryDatabase: () => call('app:retry-database'), getLayout: () => call('app:get-layout'), setLayout: (layout) => call('app:set-layout', { layout }) }, product: { getEdition: () => call('product:get-edition'), setEdition: (edition) => call('product:set-edition', { edition }) }, demo: { seed: () => call('demo:seed') },
+  storage: {
+    state: () => call('storage:state'),
+    configure: (input) => call('storage:configure', input),
+    testConnection: () => call('storage:test-connection'),
+    discoverServers: () => call('storage:discover-servers'),
+    probeAddress: (address, operationalMode = 'lan-client') => call('storage:probe-address', { address, operationalMode }),
+    connectAddress: (address, operationalMode = 'lan-client') => call('storage:connect-address', { address, operationalMode }),
+    moduleState: (module) => call('storage:module-state', { module }),
+    refreshModuleCapabilities: () => call('storage:refresh-module-capabilities'),
+    migrationPreflight: (module) => call('storage:migration-preflight', { module }),
+    migrationStatus: (module) => call('storage:migration-status', { module }),
+    migrateModule: (module) => call('storage:migrate-module', { module }),
+    rollbackModuleMigration: (module) => call('storage:rollback-module-migration', { module })
+  },
+  lan: {
+    hostState: () => call('lan:host-state'),
+    startHost: () => call('lan:host-start'),
+    stopHost: () => call('lan:host-stop'),
+    status: () => call('lan:status'),
+    reconnect: () => call('lan:reconnect'),
+    operationsStatus: () => call('lan:operations-status'),
+    listBackups: () => call('lan:list-backups'),
+    createBackup: (reason = 'manual') => call('lan:create-backup', { reason }),
+    testBackup: (backupId) => call('lan:test-backup', { backupId }),
+    preUpgradeBackup: () => call('lan:pre-upgrade-backup'),
+    restoreBackup: (backupId) => call('lan:restore-backup', { backupId }),
+    claimHost: (setupCode) => call('lan:claim-host', { setupCode }),
+    pair: (code) => call('lan:pair', { code }),
+    disconnect: () => call('lan:disconnect'),
+    adminStatus: () => call('lan:admin-status'),
+    createPairing: (memberId) => call('lan:create-pairing', { memberId }),
+    listDevices: () => call('lan:list-devices'),
+    setDeviceStatus: (deviceId, status) => call('lan:set-device-status', { deviceId, status }),
+    refreshIdentity: () => call('lan:refresh-identity'),
+    startAtLoginState: () => call('lan:start-at-login-state'),
+    setStartAtLogin: (enabled) => call('lan:set-start-at-login', { enabled })
+  },
+  conflicts: {
+    onRevisionConflict: (listener) => {
+      revisionConflictListeners.add(listener)
+      return () => revisionConflictListeners.delete(listener)
+    }
+  },
+  empresas: entity('empresas'), clientes: entity('clientes'), fornecedores: entity('fornecedores'), obras: { ...entity('obras'), importSpreadsheets: () => call('works:import-spreadsheets'), overview: (obra_id) => call('works:overview', { obra_id }), timeline: (obra_id) => call('works:timeline', { obra_id }) }, etapas: entity('etapas_obra'), locais: entity('locais_obra'), orcamentos: entity('itens_orcamentarios'), cronograma: entity('cronograma_etapas'), rdos: entity('rdos'), rdoEquipe: entity('rdo_equipe'), rdoEquipamentos: entity('rdo_equipamentos'), rdoOcorrencias: entity('rdo_ocorrencias'), rdoAnexos: entity('rdo_anexos'),
+  medicoes: { ...entity('medicoes'), saveWithItems: (data) => call('measurements:save', data), anexos: entity('medicao_anexos'), itensMedidos: entity('medicao_itens'), importAttachment: (data) => call('files:import-measurement', data), mapa: entity('medicao_mapa_itens') }, contas: { ...entity('contas'), payment: (id, payment) => call('accounts:payment', { id, payment }) },
+  categorias: entity('categorias_financeiras'), cargos: entity('cargos'), funcionarios: entity('funcionarios'), folhas: entity('folhas_pagamento'), lancamentosFolha: entity('folha_lancamentos'), pagamentosFuncionario: entity('pagamentos_funcionario'), beneficios: entity('beneficios'),
+  epis: entity('epis'), funcionarioEpis: entity('funcionario_epis'), arquivos: entity('arquivos'), fontes: entity('fontes_documentais'), pastas: entity('pastas_vinculadas'),
+  documentos: { ...entity('documentos'), generate: (data) => call('documents:generate', data), templates: () => call('documents:templates'), saveTemplate: (data) => call('documents:save-template', data), chooseLocalTemplate: () => call('documents:choose-local-template'), setDefaultTemplate: (data) => call('documents:set-default-template', data), importForEmployee: (data) => call('files:import-employee', data), importForWork: (data) => call('files:import-work-document', data), open: (path) => call('files:open', { path }), reveal: (path) => call('files:reveal', { path }), copyPath: (path) => call('files:copy-path', { path }), openFolder: () => call('files:open-folder'), chooseRoot: () => call('files:choose-root'), getRoot: () => call('files:get-root'), delete: (data) => call('documents:delete', data) },
+  explorador: {
+    list: (rootId, relativePath = '') => call('explorer:list', { rootId, relativePath }),
+    preview: (rootId, relativePath) => call('explorer:preview', { rootId, relativePath }),
+    open: (rootId, relativePath = '') => call('explorer:open', { rootId, relativePath }),
+    createFolder: (rootId, parentRelativePath, name) => call('explorer:create-folder', { rootId, parentRelativePath, name }),
+    rename: (rootId, relativePath, newName) => call('explorer:rename', { rootId, relativePath, newName }),
+    move: (rootId, relativePath, destinationRelativePath) => call('explorer:move', { rootId, relativePath, destinationRelativePath }),
+    remove: (rootId, relativePath, recursive = false) => call('explorer:remove', { rootId, relativePath, recursive }),
+    pickImport: (rootId, destinationRelativePath = '') => call('explorer:pick-import', { rootId, destinationRelativePath }),
+    importFiles: (rootId, destinationRelativePath, sourcePaths) => call('explorer:import', { rootId, destinationRelativePath, sourcePaths }),
+    pathForFile: (file) => webUtils.getPathForFile(file),
+    context: (rootId, relativePath) => call('explorer:context', { rootId, relativePath }),
+    index: (rootId) => call('explorer:index', { rootId }),
+    moveToSigned: (rootId, relativePath) => call('explorer:move-to-signed', { rootId, relativePath })
+  },
+  scanner: {
+    capabilities: () => call('scanner:capabilities'),
+    start: (data) => call('scanner:start', data),
+    addPage: (data) => call('scanner:add-page', data),
+    redoPage: (data) => call('scanner:redo-page', data),
+    discard: (data) => call('scanner:discard', data),
+    saveSigned: (data) => call('scanner:save-signed', data)
+  },
+  planejamento: { overview: (obra_id) => call('planning:overview', { obra_id }) }, campo: { saveRdo: (data) => call('field:save-rdo', data) }, tarefas: entity('tarefas_obra'), compras: { ...entity('solicitacoes_compra'), cotacoes: entity('cotacoes_compra'), pedidos: entity('pedidos_compra'), itens: entity('pedido_compra_itens'), recebimentos: entity('recebimentos_materiais'), estoque: entity('movimentacoes_estoque'), summary: (obra_id) => call('procurement:summary', { obra_id }), createOrder: (data) => call('procurement:create-order', data), receiveMaterial: (data) => call('procurement:receive-material', data), moveStock: (data) => call('procurement:move-stock', data) }, contratos: { ...entity('contratos_obra'), aditivos: entity('contrato_aditivos'), create: (data) => call('contracts:create', data), addendum: (data) => call('contracts:addendum', data) }, frentes: entity('frentes_obra'), subfrentes: entity('subfrentes_obra'), checklistFrente: entity('checklist_frente_itens'),
+  folha: { overview: (data) => call('payroll:overview', data), exportOverview: (data) => call('payroll:export-overview', data), employee: (data) => call('payroll:employee', data), saveVariable: (data) => call('payroll:save-variable', data), removeVariable: (id) => call('payroll:remove-variable', { id }), confirm: (data) => call('payroll:confirm', data), pending: (competencia) => call('payroll:pending', { competencia }) },
+  importacaoFolha: { choose: () => call('payroll-import:choose'), filePreview: (token, options) => call('payroll-import:file-preview', { token, options }), template: () => call('payroll-import:template'), release: (token) => call('payroll-import:release', { token }), preview: (data) => call('payroll-import:preview', data), commit: (data) => call('payroll-import:commit', data), history: (limit=12) => call('payroll-import:history', { limit }), undo: (id) => call('payroll-import:undo', { id }) },
+  ponto: { get: (data) => call('time:get', data), autoFill: (data) => call('time:auto-fill', data), save: (data) => call('time:save', data), generate: (data) => call('time:generate', data), generateAll: (data) => call('time:generate-all', data) },
+  catalogo: { list: () => call('catalog:list'), saveCargo: (data) => call('catalog:save-cargo', data), saveCompensationPolicy: (data) => call('catalog:save-compensation-policy', data), saveBenefit: (data) => call('catalog:save-benefit', data), saveLink: (data) => call('catalog:save-link', data), deactivate: (type,id) => call('catalog:deactivate', { type,id }) },
+  importacoes: { ...entity('importacoes'), preview: () => call('imports:preview'), commit: (token) => call('imports:commit', { token }) },
+  importadorUniversal: { choose: () => call('universal-import:choose'), preview: (token, options) => call('universal-import:preview', { token, options }), commit: (token, options) => call('universal-import:commit', { token, options }) },
+  relatorios: { dashboard: (filters) => call('dashboard:get', filters), dre: (filters) => call('dre:get', filters) },
+  online: {
+    passwordAuth: (input) => call('online:password-auth', input),
+    passwordSetup: (input) => call('online:password-setup', input),
+    syncState: () => call('online:sync-state'),
+    onSyncStateChanged: (listener) => {
+      const handler = (_event, state) => listener(state)
+      ipcRenderer.on('online:sync-state-changed', handler)
+      return () => ipcRenderer.removeListener('online:sync-state-changed', handler)
+    },
+    configureSync: (scope) => call('online:sync-configure', scope),
+    syncNow: () => call('online:sync-now'),
+    resolveLocalConflict: (id, resolution) => call('online:sync-resolve-local', { id, resolution }),
+    state: () => call('online:state'),
+    setBaseUrl: (baseUrl) => call('online:set-base-url', { baseUrl }),
+    start: (activationCode) => call('online:start', { activationCode }),
+    status: () => call('online:status'),
+    completeStorage: (address = '') => call('online:complete-storage', { address }),
+    session: () => call('online:session'),
+    setStorageTopology: (input) => call('online:set-storage-topology', input),
+    membersList: () => call('online:members-list'),
+    memberSave: (input) => call('online:member-save', input),
+    memberStatus: (memberId, status) => call('online:member-status', { memberId, status }),
+    companyDevices: () => call('online:company-devices'),
+    revokeCompanyDevice: (deviceId) => call('online:revoke-company-device', { deviceId }),
+    disconnect: () => call('online:disconnect'),
+    syncPull: (sinceRevision) => call('online:sync-pull', { sinceRevision }),
+    syncPush: (changes) => call('online:sync-push', { changes }),
+    publishMobileSummary: (summary) => call('online:mobile-summary', { summary }),
+    financeRead: (view) => call('online:finance-read', { view }),
+    financeWrite: (action, input) => call('online:finance-write', { action, input }),
+    publishFinanceReference: (obligations) => call('online:finance-reference', { obligations }),
+    aiAnalyze: (input) => call('online:ai-analyze', input),
+    conflicts: () => call('online:conflicts'),
+    resolveConflict: (conflictId, resolution) => call('online:resolve-conflict', { conflictId, resolution })
+  },
+  updater: {
+    state: () => call('updater:state'),
+    check: () => call('updater:check'),
+    download: () => call('updater:download'),
+    install: () => call('updater:install'),
+    onStateChanged: (listener) => {
+      const handler = (_event, state) => listener(state)
+      ipcRenderer.on('updater:state-changed', handler)
+      return () => ipcRenderer.removeListener('updater:state-changed', handler)
+    }
+  },
+  backup: { create: () => call('backup:create'), restore: () => call('backup:restore'), openDataFolder: () => call('backup:open-data-folder') }
+})

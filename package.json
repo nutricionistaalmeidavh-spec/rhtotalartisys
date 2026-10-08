@@ -1,0 +1,10 @@
+{
+  "name": "rh-total-artisys",
+  "private": true,
+  "scripts": {
+    "install:desktop": "npm ci --prefix apps/desktop",
+    "test:core": "node --test packages/domain-core/index.test.cjs",
+    "test:desktop": "npm test --prefix apps/desktop",
+    "build:desktop": "npm run build --prefix apps/desktop"
+  }
+}
