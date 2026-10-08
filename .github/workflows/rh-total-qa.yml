@@ -28,6 +28,6 @@ jobs:
         run: |
           set -e
           data_dir="$(mktemp -d)"
-          output=$(RH_TOTAL_SMOKE=1 RH_TOTAL_DATA_DIR="$data_dir" xvfb-run -a node_modules/.bin/electron . 2>&1) || { echo "$output"; exit 1; }
+          output=$(RH_TOTAL_SMOKE=1 RH_TOTAL_DATA_DIR="$data_dir" xvfb-run -a node_modules/.bin/electron --no-sandbox . 2>&1) || { echo "$output"; exit 1; }
           echo "$output"
           grep -q RH_TOTAL_SMOKE_OK <<< "$output"
