@@ -99,4 +99,19 @@ describe('folha de ponto mensal comercial',()=>{
     expect(html).not.toContain('<embed')
     expect(html).not.toContain('<iframe')
   })
+  it('não mistura empresas ao gerar ou preparar impressão em lote',async()=>{
+    const {db,company,cargo,employee,time}=setup()
+    const otherCompany=db.save('empresas',{razao_social:'Empresa Separada',cnpj:'11.222.333/0001-81',status:'ativa'})
+    const other=db.save('funcionarios',{empresa_id:otherCompany.id,cargo_id:cargo.id,nome:'Colaborador Outra Empresa',cpf:'987.654.321-00',status:'ativo'})
+    const calls:number[]=[]
+    time.generateDocuments=async(input:any)=>{calls.push(input.funcionario_id);return {point:null}}
+    const results=await time.generateForAll({empresa_id:company.id,competencia:'2026-08',point:true,receipts:false})
+    expect(results.map((row:any)=>row.funcionario_id)).toEqual([employee.id])
+    expect(calls).toEqual([employee.id])
+    time.printableEntry=(id:number)=>({funcionario_id:id,nome:'Teste',ok:true,pointHtml:'<body>Teste</body>'})
+    expect(time.preparePrintableEntries({empresa_id:company.id,competencia:'2026-08'},null).map((row:any)=>row.funcionario_id)).toEqual([employee.id])
+    expect(time.preparePrintableEntries({empresa_id:otherCompany.id,competencia:'2026-08'},null).map((row:any)=>row.funcionario_id)).toEqual([other.id])
+    await expect(time.generateForAll({competencia:'2026-08'})).rejects.toThrow(/empresa/i)
+  })
+
 })

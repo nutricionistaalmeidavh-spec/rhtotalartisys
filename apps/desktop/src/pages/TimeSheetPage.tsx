@@ -8,18 +8,21 @@ import { competenceLabel, today } from '../utils/format'
 const typeLabels:Record<string,string>={trabalho:'Trabalho',falta:'Falta',ferias:'Férias',feriado:'Feriado',folga:'Folga',afastado:'Afastado',sabado:'Sábado',domingo:'Domingo'}
 
 export default function TimeSheetPage(){
-  const { competencia } = useWorkContext()
+  const { competencia, empresaId } = useWorkContext()
   const [employee,setEmployee]=useState('')
   const [version,setVersion]=useState(0)
   const [marks,setMarks]=useState<any[]>([])
   const [busy,setBusy]=useState(false)
   const [message,setMessage]=useState('')
   const [batchOpen,setBatchOpen]=useState(false)
+  const [batchCompanyId,setBatchCompanyId]=useState(empresaId)
   const [marksOpen,setMarksOpen]=useState(true)
   const [printPoint,setPrintPoint]=useState(true)
   const [printReceipts,setPrintReceipts]=useState(true)
   const employees=useAsync(()=>window.fluxoDre.funcionarios.list({status:'ativo'}),[])
   const cargos=useAsync(()=>window.fluxoDre.cargos.list(),[])
+  const companies=useAsync(()=>window.fluxoDre.empresas.list(),[])
+  const effectiveBatchCompanyId=batchCompanyId||(companies.data?.length===1?String(companies.data[0].id):'')
   const point=useAsync(()=>employee?window.fluxoDre.ponto.get({funcionario_id:Number(employee),competencia}):Promise.resolve(null),[employee,competencia,version])
   useEffect(()=>setMarks(point.data?.marks||[]),[point.data])
   const selected=employees.data?.find((item:any)=>item.id===Number(employee))
@@ -29,10 +32,10 @@ export default function TimeSheetPage(){
   const save=async()=>{setBusy(true);try{await window.fluxoDre.ponto.save({funcionario_id:Number(employee),competencia,marks});setVersion((v)=>v+1);setMessage('Ficha de ponto salva.')}finally{setBusy(false)}}
   const generate=async()=>{setBusy(true);setMessage('');try{await save();const result=await window.fluxoDre.ponto.generate({funcionario_id:Number(employee),competencia,paymentDate:today()});setMessage('Ficha de ponto e recibos configurados foram gerados na pasta mensal do funcionário.');if(result.point?.path)await window.fluxoDre.documentos.reveal(result.point.path);else if(result.receipt?.path)await window.fluxoDre.documentos.reveal(result.receipt.path)}catch(error:any){setMessage(error?.message||String(error))}finally{setBusy(false)}}
   const summarize=(result:any[])=>{const ok=result.filter((item:any)=>item.ok),failed=result.filter((item:any)=>!item.ok);return failed.length?ok.length+' funcionários processados. '+failed.length+' não foram processados por cadastro incompleto: '+failed.map((item:any)=>item.nome).join(', ')+'.':ok.length+' funcionários processados.'}
-  const selectionOk=()=>{if(printPoint||printReceipts)return true;setMessage('Selecione fichas de ponto e/ou recibos para gerar ou imprimir.');return false}
-  const generateAll=async()=>{if(!selectionOk())return;setBusy(true);setMessage('');try{const result=await window.fluxoDre.ponto.generateAll({competencia,paymentDate:today(),point:printPoint,receipts:printReceipts});setMessage(summarize(result));setBatchOpen(false)}catch(error:any){setMessage(error?.message||String(error))}finally{setBusy(false)}}
-  const printAll=async()=>{if(!selectionOk())return;setBusy(true);setMessage('');try{const result:any=await window.fluxoDre.ponto.generateAll({competencia,paymentDate:today(),print:true,point:printPoint,receipts:printReceipts});const failed=(result.results||[]).filter((item:any)=>!item.ok);const suffix=failed.length?' '+failed.length+' funcionário(s) não entraram no lote: '+failed.map((item:any)=>item.nome).join(', ')+'.':'';setMessage(result.canceled?'Impressão cancelada. Os PDFs já gerados foram mantidos.'+suffix:(result.printed?'Lote enviado para a caixa de impressão com '+result.employees+' funcionário(s).':'Nenhum lote foi impresso.')+suffix);setBatchOpen(false)}catch(error:any){setMessage(error?.message||String(error))}finally{setBusy(false)}}
-  const reprintAll=async()=>{if(!selectionOk())return;setBusy(true);setMessage('');try{const result:any=await window.fluxoDre.ponto.generateAll({competencia,paymentDate:today(),reprint:true,point:printPoint,receipts:printReceipts});const failed=(result.results||[]).filter((item:any)=>!item.ok);const suffix=failed.length?' '+failed.length+' funcionário(s) não entraram no lote: '+failed.map((item:any)=>item.nome).join(', ')+'.':'';setMessage(result.canceled?'Reimpressão cancelada. Nenhum PDF duplicado foi criado.'+suffix:(result.printed?'Reimpressão enviada para a caixa de impressão com '+result.employees+' funcionário(s). Nenhum PDF duplicado foi criado.':'Nenhum lote foi reimpresso.')+suffix);setBatchOpen(false)}catch(error:any){setMessage(error?.message||String(error))}finally{setBusy(false)}}
+  const selectionOk=()=>{if(!effectiveBatchCompanyId){setMessage('Selecione uma empresa antes de processar o lote.');return false}if(printPoint||printReceipts)return true;setMessage('Selecione fichas de ponto e/ou recibos para gerar ou imprimir.');return false}
+  const generateAll=async()=>{if(!selectionOk())return;setBusy(true);setMessage('');try{const result=await window.fluxoDre.ponto.generateAll({competencia,empresa_id:Number(effectiveBatchCompanyId),paymentDate:today(),point:printPoint,receipts:printReceipts});setMessage(summarize(result));setBatchOpen(false)}catch(error:any){setMessage(error?.message||String(error))}finally{setBusy(false)}}
+  const printAll=async()=>{if(!selectionOk())return;setBusy(true);setMessage('');try{const result:any=await window.fluxoDre.ponto.generateAll({competencia,empresa_id:Number(effectiveBatchCompanyId),paymentDate:today(),print:true,point:printPoint,receipts:printReceipts});const failed=(result.results||[]).filter((item:any)=>!item.ok);const suffix=failed.length?' '+failed.length+' funcionário(s) não entraram no lote: '+failed.map((item:any)=>item.nome).join(', ')+'.':'';setMessage(result.canceled?'Impressão cancelada. Os PDFs já gerados foram mantidos.'+suffix:(result.printed?'Lote enviado para a caixa de impressão com '+result.employees+' funcionário(s).':'Nenhum lote foi impresso.')+suffix);setBatchOpen(false)}catch(error:any){setMessage(error?.message||String(error))}finally{setBusy(false)}}
+  const reprintAll=async()=>{if(!selectionOk())return;setBusy(true);setMessage('');try{const result:any=await window.fluxoDre.ponto.generateAll({competencia,empresa_id:Number(effectiveBatchCompanyId),paymentDate:today(),reprint:true,point:printPoint,receipts:printReceipts});const failed=(result.results||[]).filter((item:any)=>!item.ok);const suffix=failed.length?' '+failed.length+' funcionário(s) não entraram no lote: '+failed.map((item:any)=>item.nome).join(', ')+'.':'';setMessage(result.canceled?'Reimpressão cancelada. Nenhum PDF duplicado foi criado.'+suffix:(result.printed?'Reimpressão enviada para a caixa de impressão com '+result.employees+' funcionário(s). Nenhum PDF duplicado foi criado.':'Nenhum lote foi reimpresso.')+suffix);setBatchOpen(false)}catch(error:any){setMessage(error?.message||String(error))}finally{setBusy(false)}}
   return <>
     <PageHeader title="Folhas de ponto" description="Controle mensal das marcações e central de geração, impressão e reimpressão dos documentos do período."/>
     <Card className="time-filter"><Field label="Funcionário" wide><select value={employee} onChange={(event)=>setEmployee(event.target.value)}><option value="">Selecione um funcionário...</option>{employees.data?.map((item:any)=><option value={item.id} key={item.id}>{item.nome} · CPF {item.cpf||'não informado'} · {cargos.data?.find((role:any)=>role.id===item.cargo_id)?.nome||'Sem cargo'}</option>)}</select></Field><Field label="Competência"><div className="readonly-person">{competenceLabel(competencia)}</div></Field></Card>
@@ -53,7 +56,7 @@ export default function TimeSheetPage(){
 
     {batchOpen&&<Card className="print-batch-card" style={{marginBottom:14,maxWidth:760,marginLeft:'auto'}}>
       <div className="card-header" style={{alignItems:'flex-start'}}><div><h2>Documentos em lote</h2><p>Escolha ficha de ponto, recibos ou ambos. Imprimir gera os PDFs selecionados e abre a caixa do Windows; reimprimir apenas envia novamente o mês selecionado, sem duplicar arquivos.</p></div></div>
-      <div style={{display:'grid',gap:10,margin:'14px'}}>
+      <div style={{display:'grid',gap:10,margin:'14px'}}><Field label="Empresa do lote"><select value={effectiveBatchCompanyId} onChange={event=>setBatchCompanyId(event.target.value)}><option value="">Selecione a empresa...</option>{companies.data?.map((company:any)=><option key={company.id} value={company.id}>{company.nome_fantasia||company.razao_social}</option>)}</select></Field>
         <label style={{display:'flex',alignItems:'center',gap:10,cursor:'pointer'}}><input type="checkbox" checked={printPoint} onChange={(event)=>setPrintPoint(event.target.checked)}/><span><strong>Fichas de ponto</strong><br/><small>Uma ficha mensal para cada colaborador.</small></span></label>
         <label style={{display:'flex',alignItems:'center',gap:10,cursor:'pointer'}}><input type="checkbox" checked={printReceipts} onChange={(event)=>setPrintReceipts(event.target.checked)}/><span><strong>Recibos de benefícios</strong><br/><small>Benefícios definidos pela política de recibos da empresa.</small></span></label>
       </div>
