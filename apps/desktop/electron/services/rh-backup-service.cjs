@@ -9,7 +9,7 @@ class HrBackupService{
   if(!source.startsWith(root+path.sep)||!source.endsWith('.sqlite'))throw Error('Selecione um SQLite da pasta de backups.')
   return source
  }
- list(){return fs.readdirSync(this.base).filter(n=>/^rh-total-[0-9-]+\.sqlite$/.test(n)).map(name=>{const file=path.join(this.base,name),stat=fs.statSync(file);return{name,path:file,size:stat.size,created_at:stat.mtime.toISOString()}}).sort((a,b)=>b.created_at.localeCompare(a.created_at))}
+ list(){return fs.readdirSync(this.base).filter(n=>/^rh-total-[0-9a-f-]+\.sqlite$/.test(n)).map(name=>{const file=path.join(this.base,name),stat=fs.statSync(file);return{name,path:file,size:stat.size,created_at:stat.mtime.toISOString()}}).sort((a,b)=>b.created_at.localeCompare(a.created_at))}
  verify(file){
   const source=this.checkedPath(file)
   const sample=new Database(source,{readonly:true,fileMustExist:true})
