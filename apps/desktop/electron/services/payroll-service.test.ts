@@ -212,3 +212,24 @@ describe('integração canônica folha → financeiro',()=>{
     expect(db.get('contas',accountId).valor_centavos).toBe(278000)
   })
 })
+
+describe('P0 integridade da competencia',()=>{
+  it('visao geral sem folha criada nao grava lancamentos nem contas',()=>{
+    const {db,payroll,employee}=setup()
+    const companyId=employee.empresa_id
+    const before=db.db.prepare('SELECT COUNT(*) total FROM folhas_pagamento').get().total
+    const result=payroll.overview({empresa_id:companyId,competencia:'2028-04'})
+    expect(result.employees).toHaveLength(1)
+    expect(db.db.prepare('SELECT COUNT(*) total FROM folhas_pagamento').get().total).toBe(before)
+    expect(db.db.prepare("SELECT COUNT(*) total FROM contas WHERE origem_tipo='folha_pagamento'").get().total).toBe(0)
+  })
+  it('congela salario por competencia e usa o novo somente no periodo seguinte',()=>{
+    const {db,payroll,employee}=setup()
+    payroll.getEmployee({funcionario_id:employee.id,competencia:'2028-01'})
+    db.save('funcionarios',{...employee,salario_centavos:310000})
+    const original=payroll.getEmployee({funcionario_id:employee.id,competencia:'2028-01'})
+    const next=payroll.getEmployee({funcionario_id:employee.id,competencia:'2028-02'})
+    expect(original.launches.find((x:any)=>x.tipo==='salario').valor_centavos).toBe(250000)
+    expect(next.launches.find((x:any)=>x.tipo==='salario').valor_centavos).toBe(310000)
+  })
+})
