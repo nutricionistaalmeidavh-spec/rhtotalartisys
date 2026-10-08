@@ -31,20 +31,24 @@ class HrBackupService{
   const candidate=this.verify(source)
   const rollback=await this.create()
   const tmp=this.db.dbPath+'.restoring'
+  const old=this.db.dbPath+'.before-restore'
   this.db.close()
   try{
    fs.copyFileSync(candidate.path,tmp)
+   fs.renameSync(this.db.dbPath,old)
    fs.renameSync(tmp,this.db.dbPath)
    this.db.open()
    const integrity=this.db.db.pragma('quick_check',{simple:true})
    if(integrity!=='ok')throw Error('Banco restaurado não passou na verificação.')
+   fs.rmSync(old,{force:true})
    return{restored:true,path:candidate.path,previous_snapshot:rollback.path}
   }catch(error){
    this.db.close()
-   fs.copyFileSync(rollback.path,this.db.dbPath)
+   if(fs.existsSync(old)){fs.rmSync(this.db.dbPath,{force:true});fs.renameSync(old,this.db.dbPath)}
+   else fs.copyFileSync(rollback.path,this.db.dbPath)
    this.db.open()
    throw error
-  }finally{fs.rmSync(tmp,{force:true})}
+  }finally{fs.rmSync(tmp,{force:true});fs.rmSync(old,{force:true})}
  }
 }
 module.exports={HrBackupService}
