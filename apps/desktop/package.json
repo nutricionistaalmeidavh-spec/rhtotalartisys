@@ -1,0 +1,91 @@
+{
+  "name": "rh-total-artisys-desktop",
+  "version": "0.1.0",
+  "description": "RH Total ArtiSys — desktop offline de recursos humanos",
+  "author": "ArtiSys",
+  "main": "electron/main.cjs",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "electron:dev": "concurrently -k \"vite --host 127.0.0.1\" \"wait-on http://127.0.0.1:5173 && cross-env VITE_DEV_SERVER_URL=http://127.0.0.1:5173 electron .\"",
+    "build": "tsc -b && vite build",
+    "dist": "npm run build && electron-builder --win nsis --x64 --publish never",
+    "test": "vitest run",
+    "lint": "tsc -b --pretty false"
+  },
+  "build": {
+    "appId": "br.com.artisys.rhtotal.desktop",
+    "productName": "RH Total ArtiSys",
+    "npmRebuild": false,
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "database/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../../packages/domain-core",
+        "to": "domain-core",
+        "filter": [
+          "index.cjs",
+          "package.json"
+        ]
+      }
+    ],
+    "asarUnpack": [
+      "node_modules/better-sqlite3/**/*"
+    ],
+    "publish": [],
+    "mac": {
+      "target": [
+        "dmg"
+      ]
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "artifactName": "RH-Total-ArtiSys-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "RH Total ArtiSys"
+    },
+    "electronVersion": "43.4.1"
+  },
+  "dependencies": {
+    "better-sqlite3": "^13.0.2",
+    "electron-updater": "^6.6.2",
+    "exceljs": "^4.4.0",
+    "lucide-react": "^1.28.0",
+    "pdf-lib": "^1.17.1",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "react-router-dom": "^7.18.2",
+    "recharts": "^3.10.1",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "@vitejs/plugin-react": "^6.0.5",
+    "autoprefixer": "^10.5.4",
+    "concurrently": "^10.0.4",
+    "cross-env": "^10.1.0",
+    "electron": "43.4.1",
+    "electron-builder": "^26.15.3",
+    "postcss": "^8.5.25",
+    "tailwindcss": "^3.4.19",
+    "typescript": "^7.0.2",
+    "vite": "^8.2.0",
+    "vitest": "^4.1.10",
+    "wait-on": "^9.1.0"
+  }
+}
