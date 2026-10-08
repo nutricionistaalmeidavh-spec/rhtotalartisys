@@ -9,6 +9,8 @@ import CompensationPage from './pages/CompensationPage'
 import PayrollPage from './pages/PayrollPage'
 import TimeSheetPage from './pages/TimeSheetPage'
 import HrTemplatesPage from './pages/HrTemplatesPage'
+import DocumentsPage from './pages/DocumentsPage'
+import FinancePage from './pages/FinancePage'
 import CompaniesPage from './pages/CompaniesPage'
 import RhWorkspacePage from './pages/RhWorkspacePage'
 import RhAccessPage from './pages/RhAccessPage'
@@ -20,6 +22,7 @@ const links=[
   {to:ROUTES.rhCompensation,icon:WalletCards,label:'Remuneração'},
   {to:ROUTES.rhPayroll,icon:ReceiptText,label:'Folha'},
   {to:ROUTES.rhTime,icon:CalendarClock,label:'Ponto'},
+  {to:ROUTES.documents,icon:FileArchive,label:'Documentos'},
   {to:ROUTES.rhTemplates,icon:FileArchive,label:'Modelos'},
   {to:ROUTES.rhWorkspace,icon:ClipboardList,label:'Gestão RH'},
   {to:ROUTES.rhAccess,icon:ShieldCheck,label:'Acesso e backup'},
@@ -45,9 +48,9 @@ export default function App(){
           <Route path={ROUTES.rhWorkspace} element={<RhWorkspacePage/>}/>
           <Route path={ROUTES.rhAccess} element={<RhAccessPage/>}/>
           <Route path={ROUTES.companies} element={<CompaniesPage/>}/>
-          <Route path={ROUTES.documents} element={<Navigate to={ROUTES.rhTemplates} replace/>}/>
-          <Route path={ROUTES.finance} element={<Navigate to={ROUTES.rhPayroll} replace/>}/>
-          <Route path={ROUTES.dre} element={<Navigate to={ROUTES.rhPayroll} replace/>}/>
+          <Route path={ROUTES.documents} element={<DocumentsPage/>}/>
+          <Route path={ROUTES.finance} element={<FinancePage/>}/>
+          <Route path={ROUTES.dre} element={<FinancePage/>}/>
           <Route path="*" element={<Navigate to={ROUTES.rh} replace/>}/>
         </Routes>
       </main>

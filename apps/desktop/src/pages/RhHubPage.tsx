@@ -1,6 +1,9 @@
 import { BriefcaseBusiness, CalendarClock, FileArchive, ReceiptText, UsersRound, WalletCards, ClipboardList, ShieldCheck } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Card, PageHeader } from '../components/ui'
+import { useAsync } from '../hooks/useAsync'
+import { useWorkContext } from '../hooks/useWorkContext'
+import { ErrorState, Loading } from '../components/ui'
 import { ROUTES } from '../routes/registry'
 
 const cards = [
@@ -15,8 +18,15 @@ const cards = [
 ]
 
 export default function RhHubPage(){
+  const {competencia}=useWorkContext()
+  const employees=useAsync(()=>window.fluxoDre.funcionarios.list(),[])
+  const pending=useAsync(()=>window.fluxoDre.folha.pending(competencia),[competencia])
+  const incomplete=employees.data?.filter(x=>!x.cpf||!x.empresa_id||!x.cargo_id)||[]
+  if(employees.error)return <ErrorState error={employees.error} retry={employees.reload}/>
+  if(pending.error)return <ErrorState error={pending.error} retry={pending.reload}/>
   return <>
     <PageHeader title="RH" description="Gestão dos colaboradores, remuneração, folha, ponto e documentos trabalhistas em um único fluxo."/>
+    <Card><h2>Pendências de {competencia}</h2>{employees.loading||pending.loading?<Loading/>:<><p>{pending.data?.length||0} pagamentos aguardando revisão · {incomplete.length} cadastros incompletos</p><Link to="/rh/folha?tab=pendentes">Revisar pagamentos</Link>{incomplete.map(x=><p key={x.id}><Link to={`/rh/admissoes?id=${x.id}`}>Completar cadastro de {x.nome}</Link></p>)}</>}</Card>
     <section aria-labelledby="rh-admission-flow-title">
       <div className="section-heading">
         <div>
@@ -26,9 +36,9 @@ export default function RhHubPage(){
       </div>
       <ol className="rh-journey" aria-label="Jornada de admissão">
         <li><Link to={ROUTES.rhAdmissions}>1. Cadastro</Link><small>Dados pessoais e documentos.</small></li>
-        <li><Link to={ROUTES.rhAdmissions}>2. Contrato</Link><small>Empresa, cargo, jornada e remuneração.</small></li>
-        <li><Link to={ROUTES.rhAdmissions}>3. Benefícios e EPI</Link><small>Confira benefícios e itens entregues.</small></li>
-        <li><Link to={ROUTES.rhAdmissions}>4. Documentos</Link><small>Gere o kit admissional.</small></li>
+        <li><Link to={`${ROUTES.rhAdmissions}?step=2`}>2. Contrato</Link><small>Empresa, cargo, jornada e remuneração.</small></li>
+        <li><Link to={`${ROUTES.rhAdmissions}?step=3`}>3. Benefícios e EPI</Link><small>Confira benefícios e itens entregues.</small></li>
+        <li><Link to={`${ROUTES.rhAdmissions}?step=4`}>4. Documentos</Link><small>Gere o kit admissional.</small></li>
         <li><Link to={`${ROUTES.documents}?context=rh`}>5. Conferência</Link><small>Revise, imprima e acompanhe os documentos de RH.</small></li>
       </ol>
     </section>

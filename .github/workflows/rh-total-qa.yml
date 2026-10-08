@@ -3,6 +3,9 @@ on:
   workflow_dispatch:
   pull_request:
     types: [opened, ready_for_review]
+permissions:
+  contents: read
+
 jobs:
   checks:
     runs-on: ubuntu-latest
@@ -21,6 +24,7 @@ jobs:
       - run: npm test
       - run: node --test ../../packages/domain-core/index.test.cjs
       - run: npm run build
+      - run: npx electron-rebuild -f -w better-sqlite3
       - name: Smoke-test Electron and local SQLite
         run: |
           set -e
@@ -28,3 +32,36 @@ jobs:
           output=$(RH_TOTAL_SMOKE=1 RH_TOTAL_DATA_DIR="$data_dir" xvfb-run -a node_modules/.bin/electron --no-sandbox . 2>&1) || { echo "$output"; exit 1; }
           echo "$output"
           grep -q RH_TOTAL_SMOKE_OK <<< "$output"
+  playwright:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: apps/desktop
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/desktop/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npm run build
+      - name: Rebuild SQLite for Electron
+        run: npx electron-rebuild -f -w better-sqlite3
+      - name: Install display dependencies
+        run: npx playwright install-deps chromium
+      - name: QA real Electron with isolated SQLite
+        run: xvfb-run -a npm run test:e2e
+      - name: Screenshots, traces, logs and HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rh-total-playwright-${{ github.run_id }}
+          path: |
+            apps/desktop/test-results/
+            apps/desktop/playwright-report/
+          retention-days: 14
+          if-no-files-found: error

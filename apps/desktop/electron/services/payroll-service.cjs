@@ -177,6 +177,10 @@ class PayrollService {
   }
 
   confirm(payload) {
+    const date=String(payload.data||'')
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||Number.isNaN(Date.parse(date+'T12:00:00Z'))||new Date(date+'T12:00:00Z').toISOString().slice(0,10)!==date)throw new Error('Informe uma data de pagamento válida.')
+    if(!['PIX','Transferência','Dinheiro','Cheque','Outro'].includes(payload.forma_pagamento||'PIX'))throw new Error('Forma de pagamento inválida.')
+    if(![1,2].includes(Number(payload.quinzena)))throw new Error('Quinzena inválida.')
     const { employee, sheet } = this.ensureSheet(payload.funcionario_id, payload.competencia)
     if(sheet.status==='fechada')throw Error('Competência fechada. Reabra com justificativa.')
     const quinzena = Number(payload.quinzena)
@@ -184,6 +188,7 @@ class PayrollService {
     if (existing) throw new Error('Esta quinzena já foi confirmada.')
     const rows = this.db.db.prepare("SELECT * FROM folha_lancamentos WHERE folha_id=? AND funcionario_id=? AND quinzena=? AND status='pendente'").all(sheet.id, employee.id, quinzena)
     const amount = payrollAmount(rows)
+    if(amount<=0)throw new Error('Não há valor positivo pendente para registrar nesta quinzena.')
     return this.db.db.transaction(() => {
       const payment = this.db.save('pagamentos_funcionario', { funcionario_id: employee.id, folha_id: sheet.id, competencia: payload.competencia, quinzena, valor_centavos: amount, data: payload.data, status: 'pago', observacoes: payload.observacoes || null, forma_pagamento: payload.forma_pagamento || 'PIX', confirmado_em: new Date().toISOString() })
       this.db.db.prepare("UPDATE folha_lancamentos SET status='pago',updated_at=CURRENT_TIMESTAMP WHERE folha_id=? AND funcionario_id=? AND quinzena=? AND status='pendente'").run(sheet.id, employee.id, quinzena)

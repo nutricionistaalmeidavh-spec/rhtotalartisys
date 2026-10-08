@@ -1,6 +1,6 @@
 import { Edit3, HardHat, Plus, Trash2, WalletCards } from 'lucide-react'
 import { FormEvent, useState } from 'react'
-import { Button, Card, Confirm, Field, FormActions, Loading, Modal, PageHeader, Status } from '../components/ui'
+import { ErrorState, Button, Card, Confirm, Field, FormActions, Loading, Modal, PageHeader, Status } from '../components/ui'
 import { useAsync } from '../hooks/useAsync'
 import { brl, toCents } from '../utils/format'
 
@@ -78,6 +78,7 @@ export default function CompensationPage(){
     return{label:`${links.length} cargos · ${brl(values[0])} a ${brl(values[values.length-1])}`,detail:'O valor efetivo varia conforme o cargo.'}
   }
 
+  if(catalog.error)return <ErrorState error={catalog.error} retry={catalog.reload}/>
   return <>
     <PageHeader title="Cargos e remuneração" description="Defina funções, salário-base e benefícios. Os valores definidos aqui são utilizados automaticamente na Folha e pagamentos."/>
 
