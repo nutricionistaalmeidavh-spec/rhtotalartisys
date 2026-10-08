@@ -36,6 +36,7 @@ async function call(channel, payload) {
 const entity = (table) => ({ list: (filters) => call('entity:list', { table, filters }), get: (id) => call('entity:get', { table, id }), save: (data) => call('entity:save', { table, data }), remove: (id, revision) => call('entity:remove', { table, id, revision }) })
 
 contextBridge.exposeInMainWorld('fluxoDre', {
+  rh: {list: (data) => call('rh:list',data),get: (data) => call('rh:get',data),save: (data) => call('rh:save',data),remove: (data) => call('rh:remove',data),indicators: (data) => call('rh:indicators',data),closePayroll: (data) => call('rh:close-payroll',data),reopenPayroll: (data) => call('rh:reopen-payroll',data),completeTermination: (data) => call('rh:complete-termination',data)},
   app: { bootstrap: () => call('app:bootstrap'), retryDatabase: () => call('app:retry-database'), getLayout: () => call('app:get-layout'), setLayout: (layout) => call('app:set-layout', { layout }) }, product: { getEdition: () => call('product:get-edition'), setEdition: (edition) => call('product:set-edition', { edition }) }, demo: { seed: () => call('demo:seed') },
   storage: {
     state: () => call('storage:state'),
