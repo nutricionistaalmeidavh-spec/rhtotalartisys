@@ -102,6 +102,7 @@ function createHrLanServer({db,access,host='127.0.0.1',port=0,tlsKey,tlsCert}={}
    if(req.method==='GET'&&url.pathname==='/v1/records'){
     const emp=Number(url.searchParams.get('empresa_id')||0),tipo=url.searchParams.get('tipo')||undefined
     const caller=access.requireSession(token,{empresa_id:emp||undefined,tipo})
+    if(LIMITED[caller.perfil]&&!tipo)throw Error('Selecione um módulo autorizado para este perfil.')
     const companyId=caller.empresa_id||emp
     if(!companyId)throw Error('Informe a empresa.')
     const own=caller.perfil==='colaborador'?caller.funcionario_id:undefined
