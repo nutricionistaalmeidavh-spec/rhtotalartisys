@@ -105,7 +105,7 @@ async function createWindow(){
 }
 
 app.whenReady().then(async()=>{
-  try{registerServices();await createWindow()}
+  try{registerServices();if(process.env.RH_TOTAL_SMOKE==='1'){console.log('RH_TOTAL_SMOKE_OK');app.quit();return}await createWindow()}
   catch(error){console.error('RH Total falhou na inicialização:',error);dialog.showErrorBox('RH Total ArtiSys',String(error.message||error));app.quit()}
 })
 app.on('window-all-closed',()=>{if(process.platform!=='darwin')app.quit()})

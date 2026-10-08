@@ -24,3 +24,10 @@ jobs:
       - run: npm test
       - run: node --test ../../packages/domain-core/index.test.cjs
       - run: npm run build
+      - name: Smoke-test Electron and local SQLite
+        run: |
+          set -e
+          data_dir="$(mktemp -d)"
+          output=$(RH_TOTAL_SMOKE=1 RH_TOTAL_DATA_DIR="$data_dir" xvfb-run -a node_modules/.bin/electron . 2>&1) || { echo "$output"; exit 1; }
+          echo "$output"
+          grep -q RH_TOTAL_SMOKE_OK <<< "$output"
