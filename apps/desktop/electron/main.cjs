@@ -9,6 +9,12 @@ const {PayrollImportFileService}=require('./services/payroll-import-file-service
 const {TimeService}=require('./services/time-service.cjs')
 const {DocumentService}=require('./services/document-service.cjs')
 
+if(process.env.RH_TOTAL_DATA_DIR){
+  require('node:fs').mkdirSync(process.env.RH_TOTAL_DATA_DIR,{recursive:true})
+  app.setPath('userData',process.env.RH_TOTAL_DATA_DIR)
+  app.setPath('sessionData',process.env.RH_TOTAL_DATA_DIR)
+}
+
 let db,mainWindow
 
 function registerServices(){
@@ -24,13 +30,15 @@ function registerServices(){
   const importFiles=new PayrollImportFileService()
   const handlers=new Map()
   const register=(name,fn)=>handlers.set(name,fn)
-  const entities=new Set(['empresas','obras','funcionarios','cargos','beneficios','epis','funcionario_epis','documentos'])
+  const entities=new Set(['empresas','obras','funcionarios','cargos','beneficios','epis','funcionario_epis','documentos','arquivos','contas','categorias_financeiras'])
 
   register('entity:list',({table,filters})=>{if(!entities.has(table))throw Error('Entidade indisponível');return db.list(table,filters)})
   register('entity:get',({table,id})=>{if(!entities.has(table))throw Error('Entidade indisponível');return db.get(table,id)})
-  register('entity:save',({table,data})=>{if(!entities.has(table))throw Error('Entidade indisponível');return db.save(table,data)})
-  register('entity:remove',({table,id})=>{if(!entities.has(table))throw Error('Entidade indisponível');return db.remove(table,id)})
+  register('entity:save',({table,data})=>{if(!entities.has(table))throw Error('Entidade indisponível');if(table==='contas'&&(data.origem_tipo==='folha_pagamento'||(data.id&&db.get(table,data.id)?.origem_tipo==='folha_pagamento')))throw Error('Edite esta conta pela folha de pagamento.');return db.save(table,data)})
+  register('entity:remove',({table,id})=>{if(!entities.has(table))throw Error('Entidade indisponível');if(table==='contas'&&db.get(table,id)?.origem_tipo==='folha_pagamento')throw Error('Edite esta conta pela folha de pagamento.');return db.remove(table,id)})
 
+  register('dre:get',data=>db.dre(data))
+  register('accounts:payment',({id,payment})=>{if(db.get('contas',id)?.origem_tipo==='folha_pagamento')throw Error('Registre este pagamento pela folha.');return db.accountPayment(id,payment)})
   register('app:bootstrap',()=>({dataPath:dataDir,databasePath:db.dbPath,firstRun:db.list('empresas').length===0,version:app.getVersion()}))
   register('catalog:list',()=>catalog.list())
   register('catalog:save-cargo',data=>catalog.saveCargo(data))
